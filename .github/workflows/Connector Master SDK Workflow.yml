@@ -567,7 +567,7 @@ jobs:
     needs: [artifact_creation]
     if: github.ref_type == 'tag'  # Only run on releases
     permissions:
-      id-token: none  #Upitno
+      id-token: write  
 
     steps:
     - name: Azure Login
@@ -627,6 +627,41 @@ jobs:
       with:
         name: Major Change Check Results
         path: "${{ github.workspace }}/mccResults/*"
+        
+    - name: Post PR Comment with Results
+      if: always() 
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+
+          const resultsDir = path.join(process.env.GITHUB_WORKSPACE, 'mccResults');
+          const files = fs.readdirSync(resultsDir);
+
+          let message = '### Major Change Check Results\n';
+          message += `**Job:** [Major Change Check](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})\n\n`;
+
+          files.forEach(file => {
+            const content = fs.readFileSync(path.join(resultsDir, file), 'utf8');
+            message += `<details><summary>Results from \`${file}\`</summary>\n\n`;
+            message += '```\n' + content + '\n```\n';
+            message += '</details>\n\n';
+          });
+
+          if (process.env.MAJOR_CHANGES_DETECTED === 'true') {
+            message = '*Major Changes Detected!**\n\n' + message;
+          } else {
+            message = '**No major changes detected.**\n\n' + message;
+          }
+
+          await github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: message
+          });
   artifact_registration:
     name: Artifact Registration and Upload
     if: github.ref_type == 'tag'

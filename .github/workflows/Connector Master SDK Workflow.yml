@@ -25,18 +25,18 @@ on:
         required: false
         type: string
 
-    #  sonarCloudProjectName:
-     #   required: true
-    #   type: string
-     # debug:
-      #  required: false
-       # type: boolean
+      sonarCloudProjectName:
+        required: true
+        type: string
+      debug:
+        required: false
+        type: boolean
 
     secrets:
       api-key:
         required: false
-     # sonarCloudToken:
-      #  required: false
+      sonarCloudToken:
+        required: false
       azureToken:
         required: false
       catalog-api:
@@ -63,7 +63,8 @@ jobs:
         run: |
           echo "Fetching secrets from Azure Key Vault..."
 
-          
+          # List of secret names needed for this job
+          secret_names=("azure-token" "sonar-token")
 
           for secret_name in "${secret_names[@]}"; do
             # Convert to uppercase and replace hyphens with underscores
@@ -87,10 +88,10 @@ jobs:
             echo "AZURE_TOKEN=${{ secrets.azureToken }}" >> "$GITHUB_ENV"
           fi
 
-       #   if [[ -n "${{ secrets.sonarCloudToken }}" ]]; then
-          #  echo "Using provided sonarCloudToken secret"
-        ##    echo "SONAR_TOKEN=${{ secrets.sonarCloudToken }}" >> "$GITHUB_ENV"
-        #  fi
+          if [[ -n "${{ secrets.sonarCloudToken }}" ]]; then
+             echo "Using provided sonarCloudToken secret"
+             echo "SONAR_TOKEN=${{ secrets.sonarCloudToken }}" >> "$GITHUB_ENV"
+          fi
 
       - uses: actions/checkout@v5
         with:
@@ -110,7 +111,7 @@ jobs:
 
       - name: Install .NET Tools
         run: |
-        
+          dotnet tool install -g dotnet-sonarscanner
           dotnet tool install -g Skyline.DataMiner.CICD.Tools.Validator
           dotnet tool install -g Skyline.DataMiner.CICD.Tools.Sbom --version 1.0.*
 
@@ -140,18 +141,89 @@ jobs:
           }
         shell: pwsh
   
-#     
+      - name: Prepare SonarCloud Variables
+        id: prepSonarCloudVar
+        run: |
+          import os
+          env_file = os.getenv('GITHUB_ENV')
+          with open(env_file, "a") as myfile:
+              myfile.write("lowerCaseOwner=" + str.lower("${{ github.repository_owner }}"))
+        shell: python
+
+      - name: Get SonarCloud Status
+        id: get-sonarcloud-status
+        run: |
+          sonarCloudProjectStatus=$(curl -s -u "${{ env.SONAR_TOKEN }}:" "https://sonarcloud.io/api/qualitygates/project_status?projectKey=${{ inputs.sonarCloudProjectName }}")
+
+          # Check if the response is empty or not valid JSON
+          if [ -z "$sonarCloudProjectStatus" ] || ! echo "$sonarCloudProjectStatus" | jq . > /dev/null 2>&1; then
+            echo "Error: The SONAR_TOKEN is invalid, expired, or the response is empty. Please check: https://sonarcloud.io/account/security and update your token: https://github.com/${{ github.repository }}/settings/secrets/actions" >&2
+            echo "Returned response: $sonarCloudProjectStatus" >&2
+            exit 1
+          fi
+
+          # Output the JSON response if valid
+          echo "Returned response: $sonarCloudProjectStatus"
+          echo "sonarCloudProjectStatus=$sonarCloudProjectStatus" >> $GITHUB_OUTPUT
+        continue-on-error: false
+        shell: bash
+
+      - name: Trigger Initial Analysis
+        if: fromJson(steps.get-sonarcloud-status.outputs.sonarCloudProjectStatus).projectStatus.status  == 'NONE'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
+        run: |
+            dotnet sonarscanner begin `
+              /k:"${{ inputs.sonarCloudProjectName }}" `
+              /o:"${{ env.lowerCaseOwner }}" `
+              /d:sonar.token="${{ env.SONAR_TOKEN }}" `
+              /d:sonar.host.url="https://sonarcloud.io" `
+              /d:sonar.cs.opencover.reportsPaths="**/TestResults/**/coverage.opencover.xml" `
+              /d:sonar.cs.vstest.reportsPaths="**/TestResults/**.trx" `
+              /d:sonar.exclusions="**/*.yml,**/*.xml"
+            dotnet build "${{ steps.findSlnFile.outputs.solutionFilePath }}" -p:DefineConstants="DCFv1%3BDBInfo%3BALARM_SQUASHING" --configuration Release -nodeReuse:false
+            dotnet sonarscanner end /d:sonar.token="${{ env.SONAR_TOKEN  }}"
+        continue-on-error: true
+
+      - name: Start Analysis
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
+        run: |
+            dotnet sonarscanner begin `
+              /k:"${{ inputs.sonarCloudProjectName }}" `
+              /o:"${{ env.lowerCaseOwner }}" `
+              /d:sonar.token="${{ env.SONAR_TOKEN }}" `
+              /d:sonar.host.url="https://sonarcloud.io" `
+              /d:sonar.cs.opencover.reportsPaths="**/TestResults/**/coverage.opencover.xml" `
+              /d:sonar.cs.vstest.reportsPaths="**/TestResults/**.trx" `
+              /d:sonar.exclusions="**/*.yml,**/*.xml"
+        continue-on-error: true
+
       
       - name: Building
         run: dotnet build "${{ steps.findSlnFile.outputs.solutionFilePath }}" -p:DefineConstants="DCFv1%3BDBInfo%3BALARM_SQUASHING" --configuration Release -nodeReuse:false
 
       - name: Unit Tests
-      # when not using MSTest you'll need to install coverlet.collector nuget in your test solutions
+         when not using MSTest you'll need to install coverlet.collector nuget in your test solutions
         id: unit-tests
         run: dotnet test "${{ steps.findSlnFile.outputs.solutionFilePath }}" --filter TestCategory!=IntegrationTest --logger "trx;logfilename=unitTestResults.trx" --collect "XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura,opencover
         continue-on-error: true
-  
-    
+      
+      - name: Stop Analysis
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
+        run: |
+            dotnet sonarscanner end /d:sonar.token="${{ env.SONAR_TOKEN }}"
+        continue-on-error: true
+
+      - name: SonarCloud Quality Gate check
+        id: sonarcloud-quality-gate-check
+        uses: sonarsource/sonarqube-quality-gate-action@master
+        with:
+          scanMetadataReportFile: .sonarqube/out/.sonar/report-task.txt
+        continue-on-error: true
+        # Force to fail step after specific time.
+        timeout-minutes: 5
 
       - name: Run Connector Validator
         run: |
@@ -188,14 +260,17 @@ jobs:
       - name: Quality Gate
         id: quality-step
         run: |
-          if "${{ steps.validator-quality-gate.outcome }}" == "failure" or "${{ steps.unit-tests.outcome }}" == "failure" == "FAILED":
+          if "${{ steps.validator-quality-gate.outcome }}" == "failure" or "${{ steps.unit-tests.outcome }}" == "failure" or "${{ steps.sonarcloud-quality-gate-check.outcome }}" == "failure" or "${{ steps.sonarcloud-quality-gate-check.outputs.quality-gate-status }}" == "FAILED":
             print("Quality gate failed due to:")
           if "${{ steps.unit-tests.outcome }}" == "failure":
             print("- Test failures")
           if "${{ steps.validator-quality-gate.outcome }}" == "failure":
             print("- Validator issues")
-        
-          if "${{ steps.validator-quality-gate.outcome }}" == "failure" or "${{ steps.unit-tests.outcome }}" == "failure" == "FAILED":
+            if "${{ steps.sonarcloud-quality-gate-check.outcome }}" == "failure":
+            print("- Could not retrieve SonarCloud quality gate status")
+          if "${{ steps.sonarcloud-quality-gate-check.outputs.quality-gate-status }}" == "FAILED":
+            print("- Code analysis quality gate failed")
+          if "${{ steps.validator-quality-gate.outcome }}" == "failure" or "${{ steps.unit-tests.outcome }}" == "failure" or "${{ steps.sonarcloud-quality-gate-check.outcome }}" == "failure" or "${{ steps.sonarcloud-quality-gate-check.outputs.quality-gate-status }}" == "FAILED":
             exit(1)
         shell: python
         
@@ -490,7 +565,7 @@ jobs:
     name: Major Change Check
     runs-on: ubuntu-latest
     needs: [artifact_creation]
-    if: github.ref_type == 'tag'  # Only run on releases
+    if: github.ref_type == 'tag'  
     permissions:
       id-token: write  
 

@@ -1,0 +1,133 @@
+name: DataMiner Major Change Checker
+
+on:
+  push:
+    branches: [ main, V2, master ]
+  pull_request:
+    branches: [ main, V2, master ]
+  workflow_dispatch:
+    inputs:
+      solution-path:
+        description: 'Path to the solution file (.sln)'
+        required: true
+        default: '.'
+      output-directory:
+        description: 'Directory for results'
+        required: true
+        default: './mcc-results'
+      use-catalog:
+        description: 'Use Catalog API to download previous version'
+        required: false
+        default: true
+        type: boolean
+      catalog-id:
+        description: 'Catalog ID for previous version'
+        required: false
+      catalog-api-key:
+        description: 'Catalog API key'
+        required: false
+        type: secret
+      old-protocol-path:
+        description: 'Path to old protocol.xml (alternative to catalog)'
+        required: false
+      output-file-name:
+        description: 'Results file name'
+        required: false
+      output-format:
+        description: 'Output format'
+        required: false
+        default: 'JSON,HTML'
+        type: choice
+        options:
+        - JSON
+        - XML
+        - HTML
+        - 'JSON,HTML'
+        - 'JSON,XML,HTML'
+      include-suppressed:
+        description: 'Include suppressed results'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  major-change-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '6.0.x'
+        
+    - name: Install Validator Tool
+      run: dotnet tool install --global Skyline.DataMiner.CICD.Tools.Validator --version 1.5.0-alpha
+      
+    - name: Create output directory
+      run: mkdir -p ${{ inputs.output-directory }}
+      
+    - name: Determine command parameters
+      id: params
+      run: |
+        # Build base command
+        CMD="validator major-change-checker --mcc-solution-path \"${{ inputs.solution-path }}\" --mcc-output-directory \"${{ inputs.output-directory }}\""
+        
+        # Add optional parameters
+        if [ -n "${{ inputs.output-file-name }}" ]; then
+          CMD="$CMD --output-file-name \"${{ inputs.output-file-name }}\""
+        fi
+        
+        if [ -n "${{ inputs.output-format }}" ]; then
+          CMD="$CMD --output-format ${{ inputs.output-format }}"
+        fi
+        
+        if [ "${{ inputs.include-suppressed }}" = "true" ]; then
+          CMD="$CMD --include-suppressed"
+        fi
+        
+        # Add version source (catalog or file path)
+        if [ "${{ inputs.use-catalog }}" = "true" ] && [ -n "${{ inputs.catalog-id }}" ]; then
+          CMD="$CMD --catalog-id \"${{ inputs.catalog-id }}\""
+          if [ -n "${{ inputs.catalog-api-key }}" ]; then
+            CMD="$CMD --catalog-api-key \"${{ secrets.CATALOG_API_KEY || inputs.catalog-api-key }}\""
+          fi
+        elif [ -n "${{ inputs.old-protocol-path }}" ]; then
+          CMD="$CMD --mcc-old-protocol-path \"${{ inputs.old-protocol-path }}\""
+        else
+          echo "Error: Either catalog-id or old-protocol-path must be provided"
+          exit 1
+        fi
+        
+        echo "command=$CMD" >> $GITHUB_OUTPUT
+        
+    - name: Run Major Change Checker
+      run: ${{ steps.params.outputs.command }}
+      env:
+        CATALOG_API_KEY: ${{ secrets.CATALOG_API_KEY }}
+        
+    - name: Upload results as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: major-change-checker-results
+        path: ${{ inputs.output-directory }}/*
+        retention-days: 30
+        
+    - name: Check for critical issues
+      run: |
+        # Check if there are any critical issues in the JSON results
+        if [ -f "${{ inputs.output-directory }}"/*.json ]; then
+          CRITICAL_COUNT=$(jq '.CriticalIssueCount' ${{ inputs.output-directory }}/*.json)
+          if [ "$CRITICAL_COUNT" -gt 0 ]; then
+            echo "Found $CRITICAL_COUNT critical issues"
+            exit 1
+          else
+            echo "No critical issues found"
+          fi
+        else
+          echo "⚠️  No results file found"
+        fi

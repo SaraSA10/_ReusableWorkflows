@@ -23,7 +23,7 @@ on:
         type: string
 
       sonarCloudProjectName:
-        required: true
+        required: false
         type: string
       debug:
         required: false
@@ -74,7 +74,7 @@ jobs:
             # Export as environment variable
             echo "$env_var_name=$secret_value" >> "$GITHUB_ENV"
           done
-
+        continue-on-error: true
       - name: Overwrite default secrets with user-defined secrets
         shell: bash
         run: |
@@ -87,7 +87,7 @@ jobs:
             echo "Using provided sonarCloudToken secret"
             echo "SONAR_TOKEN=${{ secrets.sonarCloudToken }}" >> "$GITHUB_ENV"
           fi
-
+        continue-on-error: true
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
@@ -144,7 +144,7 @@ jobs:
           with open(env_file, "a") as myfile:
               myfile.write("lowerCaseOwner=" + str.lower("${{ github.repository_owner }}"))
         shell: python
-
+        continue-on-error: true
       - name: Get SonarCloud Status
         id: get-sonarcloud-status
         run: |
@@ -160,9 +160,9 @@ jobs:
           # Output the JSON response if valid
           echo "Returned response: $sonarCloudProjectStatus"
           echo "sonarCloudProjectStatus=$sonarCloudProjectStatus" >> $GITHUB_OUTPUT
-        continue-on-error: false
+        continue-on-error: true
         shell: bash
-
+         
       - name: Trigger Initial Analysis
         if: fromJson(steps.get-sonarcloud-status.outputs.sonarCloudProjectStatus).projectStatus.status  == 'NONE'
         env:

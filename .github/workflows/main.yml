@@ -1,5 +1,5 @@
 name: DataMiner Major Change Checker
-#
+
 on:
   workflow_call:
     inputs:
@@ -26,8 +26,6 @@ on:
         required: false
         type: string
 
-      
-
       old-protocol-path:
         description: 'Path to old protocol.xml (alternative to catalog)'
         required: false
@@ -50,15 +48,16 @@ on:
         type: boolean
         default: false
 
-      secrets:
-      catalog-api-key:
-        required: false
-      
       buildConfiguration:
         description: 'Build configuration'
         required: false
         type: string
         default: 'Release'
+
+    secrets:
+      catalog-api-key:
+        description: 'Catalog API key'
+        required: false
 
 jobs:
   major-change-check:
@@ -100,10 +99,8 @@ jobs:
 
           if [ "${{ inputs.use-catalog }}" = "true" ] && [ -n "${{ inputs.catalog-id }}" ]; then
             CMD="$CMD --catalog-id \"${{ inputs.catalog-id }}\""
-            if [ -n "${{ secrets.CATALOG_API_KEY }}" ]; then
-              CMD="$CMD --catalog-api-key \"${{ secrets.CATALOG_API_KEY }}\""
-            elif [ -n "${{ inputs.catalog-api-key }}" ]; then
-              CMD="$CMD --catalog-api-key \"${{ inputs.catalog-api-key }}\""
+            if [ -n "${{ secrets.catalog-api-key }}" ]; then
+              CMD="$CMD --catalog-api-key \"${{ secrets.catalog-api-key }}\""
             fi
           elif [ -n "${{ inputs.old-protocol-path }}" ]; then
             CMD="$CMD --mcc-old-protocol-path \"${{ inputs.old-protocol-path }}\""
@@ -116,8 +113,6 @@ jobs:
 
       - name: Run Major Change Checker
         run: ${{ steps.params.outputs.command }}
-        env:
-          CATALOG_API_KEY: ${{ secrets.CATALOG_API_KEY }}
 
       - name: Upload results as artifact
         uses: actions/upload-artifact@v4

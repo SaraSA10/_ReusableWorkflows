@@ -1,5 +1,5 @@
 name: DataMiner Major Change Checker
-
+#
 on:
   workflow_call:
     inputs:

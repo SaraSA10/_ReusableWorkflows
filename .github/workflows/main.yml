@@ -48,7 +48,7 @@ on:
         type: boolean
         default: false
 
-      build-configuration:
+      buildConfiguration:
         description: 'Build configuration'
         required: false
         type: string
@@ -74,30 +74,54 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Build protocol to generate protocol.xml
+      - name: Install Validator Tool
+        run: dotnet tool install --global Skyline.DataMiner.CICD.Tools.Validator --version 1.5.0-alpha
+
+      - name: Find .sln file
+        id: find-sln-file
         run: |
-          # Build the solution to generate protocol.xml
-          dotnet build "${{ inputs.solution-path }}" --configuration ${{ inputs.build-configuration }} -nodeReuse:false
-          
-          # Try to find and copy protocol.xml to root for the validator
-          solutionDir=$(dirname "${{ inputs.solution-path }}")
-          if [ -f "$solutionDir/protocol.xml" ]; then
-            cp "$solutionDir/protocol.xml" ./protocol.xml
-          elif [ -f "$solutionDir/Protocol.xml" ]; then
-            cp "$solutionDir/Protocol.xml" ./protocol.xml
+          # If solution-path is a directory, find the .sln file in it
+          if [ -d "${{ inputs.solution-path }}" ]; then
+            solutionFile=$(find "${{ inputs.solution-path }}" -maxdepth 1 -name "*.sln" | head -n 1)
+            if [ -z "$solutionFile" ]; then
+              echo "No .sln file found in directory: ${{ inputs.solution-path }}"
+              exit 1
+            fi
+            echo "solutionFilePath=$solutionFile" >> $GITHUB_OUTPUT
+            echo "solutionDir=$(dirname "$solutionFile")" >> $GITHUB_OUTPUT
+          elif [ -f "${{ inputs.solution-path }}" ]; then
+            echo "solutionFilePath=${{ inputs.solution-path }}" >> $GITHUB_OUTPUT
+            echo "solutionDir=$(dirname "${{ inputs.solution-path }}")" >> $GITHUB_OUTPUT
           else
-            # Search recursively for protocol.xml
+            echo "Solution path not found: ${{ inputs.solution-path }}"
+            exit 1
+          fi
+
+      - name: Verify protocol.xml exists
+        id: verify-protocol
+        run: |
+          solutionDir="${{ steps.find-sln-file.outputs.solutionDir }}"
+          
+          # Look for protocol.xml in the solution directory
+          if [ -f "$solutionDir/protocol.xml" ]; then
+            echo "Found protocol.xml in solution directory"
+            echo "protocolPath=$solutionDir/protocol.xml" >> $GITHUB_OUTPUT
+          elif [ -f "$solutionDir/Protocol.xml" ]; then
+            echo "Found Protocol.xml in solution directory"
+            echo "protocolPath=$solutionDir/Protocol.xml" >> $GITHUB_OUTPUT
+          else
+            # Search recursively in the solution directory
             protocolFile=$(find "$solutionDir" -name "protocol.xml" -o -name "Protocol.xml" | head -n 1)
             if [ -n "$protocolFile" ]; then
               echo "Found protocol file at: $protocolFile"
-              cp "$protocolFile" ./protocol.xml
+              echo "protocolPath=$protocolFile" >> $GITHUB_OUTPUT
             else
-              echo "Warning: No protocol.xml found after build. The validator may fail."
+              echo "Error: No protocol.xml or Protocol.xml found in or under solution directory: $solutionDir"
+              echo "Files in solution directory:"
+              find "$solutionDir" -type f -name "*.xml" | head -10
+              exit 1
             fi
           fi
-
-      - name: Install Validator Tool
-        run: dotnet tool install --global Skyline.DataMiner.CICD.Tools.Validator --version 1.5.0-alpha
 
       - name: Create output directory
         run: mkdir -p ${{ inputs.output-directory }}
@@ -105,8 +129,11 @@ jobs:
       - name: Determine command parameters
         id: params
         run: |
+          # Use the found solution file path
+          SOLUTION_PATH="${{ steps.find-sln-file.outputs.solutionFilePath }}"
+          
           # Start building the command
-          CMD="dataminer-validator major-change-checker --mcc-solution-path \"${{ inputs.solution-path }}\" --mcc-output-directory \"${{ inputs.output-directory }}\""
+          CMD="dataminer-validator major-change-checker --mcc-solution-path \"$SOLUTION_PATH\" --mcc-output-directory \"${{ inputs.output-directory }}\""
           
           # Add optional parameters
           if [ -n "${{ inputs.output-file-name }}" ]; then
@@ -157,10 +184,9 @@ jobs:
         continue-on-error: true
         
       - name: Check for critical issues
-        if: always()
         run: |
           if ls ${{ inputs.output-directory }}/*.json 1> /dev/null 2>&1; then
-            CRITICAL_COUNT=$(jq '.CriticalIssueCount' ${{ inputs.output-directory }}/*.json 2>/dev/null || echo "0")
+            CRITICAL_COUNT=$(jq '.CriticalIssueCount' ${{ inputs.output-directory }}/*.json)
             if [ "$CRITICAL_COUNT" -gt 0 ]; then
               echo "Found $CRITICAL_COUNT critical issues"
               exit 1
@@ -169,5 +195,4 @@ jobs:
             fi
           else
             echo "No results file found"
-            exit 1
           fi

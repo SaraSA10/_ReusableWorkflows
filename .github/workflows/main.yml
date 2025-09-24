@@ -89,8 +89,13 @@ jobs:
             CMD="$CMD --output-file-name \"${{ inputs.output-file-name }}\""
           fi
 
+          # Fix: Handle output formats as separate arguments
           if [ -n "${{ inputs.output-format }}" ]; then
-            CMD="$CMD --output-format ${{ inputs.output-format }}"
+          # Remove any spaces and split by comma, then pass as separate arguments
+            IFS=',' read -ra FORMAT_ARRAY <<< "$(echo "${{ inputs.output-format }}" | tr -d ' ')"
+            for format in "${FORMAT_ARRAY[@]}"; do
+            CMD="$CMD --output-format $format"
+            done
           fi
 
           if [ "${{ inputs.include-suppressed }}" = "true" ]; then

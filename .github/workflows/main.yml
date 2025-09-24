@@ -1,55 +1,56 @@
 name: DataMiner Major Change Checker
 
 on:
-  push:
-    branches: [ main, V2, master ]
-  pull_request:
-    branches: [ main, V2, master ]
-  workflow_dispatch:
+  workflow_call:
     inputs:
-      solution-path:
+        solution-path:
         description: 'Path to the solution file (.sln)'
         required: true
         default: '.'
-      output-directory:
-        description: 'Directory for results'
-        required: true
-        default: './mcc-results'
-      use-catalog:
-        description: 'Use Catalog API to download previous version'
-        required: false
-        default: true
-        type: boolean
-      catalog-id:
-        description: 'Catalog ID for previous version'
-        required: false
-      catalog-api-key:
-        description: 'Catalog API key'
-        required: false
+        output-directory:
+          description: 'Directory for results'
+          required: true
+          default: './mcc-results'
+        use-catalog:
+          description: 'Use Catalog API to download previous version'
+          required: false
+          default: true
+          type: boolean
+        catalog-id:
+          description: 'Catalog ID for previous version'
+          required: false
+        catalog-api-key:
+          description: 'Catalog API key'
+          required: false
         type: secret
-      old-protocol-path:
-        description: 'Path to old protocol.xml (alternative to catalog)'
-        required: false
-      output-file-name:
-        description: 'Results file name'
-        required: false
-      output-format:
-        description: 'Output format'
-        required: false
-        default: 'JSON,HTML'
-        type: choice
+        old-protocol-path:
+          description: 'Path to old protocol.xml (alternative to catalog)'
+          required: false
+        output-file-name:
+          description: 'Results file name'
+          required: false
+        output-format:
+          description: 'Output format'
+          required: false
+          default: 'JSON,HTML'
+          type: choice
         options:
         - JSON
         - XML
         - HTML
         - 'JSON,HTML'
         - 'JSON,XML,HTML'
-      include-suppressed:
-        description: 'Include suppressed results'
+        include-suppressed:
+          description: 'Include suppressed results'
+          required: false
+          default: false
+          type: boolean
+  buildConfiguration:
+        description: 'Build configuration'
         required: false
-        default: false
-        type: boolean
-
+        type: string
+        default: 'Release'
+    
 jobs:
   major-change-check:
     runs-on: ubuntu-latest

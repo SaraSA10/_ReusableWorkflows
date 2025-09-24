@@ -5,7 +5,7 @@ on:
     inputs:
       solution-path:
         description: 'Path to the solution file (.sln)'
-        required: false
+        required: true
         type: string
         default: '.'
 
@@ -15,11 +15,11 @@ on:
         type: string
         default: './mcc-results'
 
-      # use-catalog:
-      #   description: 'Use Catalog API to download previous version'
-      #   required: false
-      #   type: boolean
-      #   default: true
+      use-catalog:
+        description: 'Use Catalog API to download previous version'
+        required: false
+        type: boolean
+        default: true
 
       catalog-id:
         description: 'Catalog ID for previous version'
@@ -73,53 +73,76 @@ jobs:
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: '8.0.x'
-          
-      # - name: Find .sln file
-      #   id: findSlnFile
-      #   run: |
-      #     echo solutionFilePath=$(find . -type f -name '*.sln') >> $GITHUB_OUTPUT
-      #   shell: bash
-        
+
       - name: Install Validator Tool
         run: dotnet tool install --global Skyline.DataMiner.CICD.Tools.Validator --version 1.5.0-alpha
-      
-      # - name: NuGet restore solution
-      #   run: dotnet restore "${{ steps.findSlnFile.outputs.solutionFilePath }}"
-      
-      # - name: Find and extract Protocol Version
-      #   if: github.ref_type != 'tag'
-      #   run: |
-      #     # Find the protocol.xml file
-      #     xml_file=$(find "${{ github.workspace }}" -maxdepth 1 -name "protocol.xml" -or -name "Protocol.xml" | head -n 1)
 
-      #     # Extract the Protocol Version using awk and store it in a variable
-      #     protocol_version=$(awk -F '[><]' '/<Version>/ {print $3}' "$xml_file")
+      - name: Find .sln file
+        id: find-sln-file
+        run: |
+          # If solution-path is a directory, find the .sln file in it
+          if [ -d "${{ inputs.solution-path }}" ]; then
+            solutionFile=$(find "${{ inputs.solution-path }}" -maxdepth 1 -name "*.sln" | head -n 1)
+            if [ -z "$solutionFile" ]; then
+              echo "No .sln file found in directory: ${{ inputs.solution-path }}"
+              exit 1
+            fi
+            echo "solutionFilePath=$solutionFile" >> $GITHUB_OUTPUT
+            echo "solutionDir=$(dirname "$solutionFile")" >> $GITHUB_OUTPUT
+          elif [ -f "${{ inputs.solution-path }}" ]; then
+            echo "solutionFilePath=${{ inputs.solution-path }}" >> $GITHUB_OUTPUT
+            echo "solutionDir=$(dirname "${{ inputs.solution-path }}")" >> $GITHUB_OUTPUT
+          else
+            echo "Solution path not found: ${{ inputs.solution-path }}"
+            exit 1
+          fi
 
-      #     # Print the extracted version for verification
-      #     echo "Extracted Protocol Version: $protocol_version"
+      - name: Verify protocol.xml exists
+        id: verify-protocol
+        run: |
+          solutionDir="${{ steps.find-sln-file.outputs.solutionDir }}"
+          
+          # Look for protocol.xml in the solution directory
+          if [ -f "$solutionDir/protocol.xml" ]; then
+            echo "Found protocol.xml in solution directory"
+            echo "protocolPath=$solutionDir/protocol.xml" >> $GITHUB_OUTPUT
+          elif [ -f "$solutionDir/Protocol.xml" ]; then
+            echo "Found Protocol.xml in solution directory"
+            echo "protocolPath=$solutionDir/Protocol.xml" >> $GITHUB_OUTPUT
+          else
+            # Search recursively in the solution directory
+            protocolFile=$(find "$solutionDir" -name "protocol.xml" -o -name "Protocol.xml" | head -n 1)
+            if [ -n "$protocolFile" ]; then
+              echo "Found protocol file at: $protocolFile"
+              echo "protocolPath=$protocolFile" >> $GITHUB_OUTPUT
+            else
+              echo "Error: No protocol.xml or Protocol.xml found in or under solution directory: $solutionDir"
+              echo "Files in solution directory:"
+              find "$solutionDir" -type f -name "*.xml" | head -10
+              exit 1
+            fi
+          fi
 
-      #     # Set the extracted version as an environment variable for future use
-      #     echo "PROTOCOL_VERSION=$protocol_version" >> $GITHUB_ENV
-      #   shell: bash
-      
       - name: Create output directory
         run: mkdir -p ${{ inputs.output-directory }}
 
       - name: Determine command parameters
         id: params
         run: |
-          CMD="dataminer-validator major-change-checker --mcc-solution-path \"${{ inputs.solution-path }}\" --mcc-output-directory \"${{ inputs.output-directory }}\""
+          # Use the found solution file path
+          SOLUTION_PATH="${{ steps.find-sln-file.outputs.solutionFilePath }}"
+          
+          CMD="dataminer-validator major-change-checker --mcc-solution-path \"$SOLUTION_PATH\" --mcc-output-directory \"${{ inputs.output-directory }}\""
           
           if [ -n "${{ inputs.output-file-name }}" ]; then
             CMD="$CMD --output-file-name \"${{ inputs.output-file-name }}\""
           fi
 
-          # Fix: Handle output formats as separate arguments
+          # Handle output formats as separate arguments
           if [ -n "${{ inputs.output-format }}" ]; then
-          # Remove any spaces and split by comma, then pass as separate arguments
             IFS=',' read -ra FORMAT_ARRAY <<< "$(echo "${{ inputs.output-format }}" | tr -d ' ')"
             for format in "${FORMAT_ARRAY[@]}"; do
-            CMD="$CMD --output-format $format"
+              CMD="$CMD --output-format $format"
             done
           fi
 
@@ -140,30 +163,11 @@ jobs:
           fi
 
           echo "command=$CMD" >> $GITHUB_OUTPUT
+          echo "Full command to execute: $CMD"
 
       - name: Run Major Change Checker
         run: ${{ steps.params.outputs.command }}
-        continue-on-error: true
-      
-      # - name: Run Major Change Checker
-      #   run: |
-      #     dataminer-validator major-change-checker `
-      #       --mcc-solution-path "${{ github.workspace }}" `
-      #       --mcc-output-directory "${{ github.workspace }}" `
-      #       --output-file-name "mccResults" `
-      #       --catalog-id "${{ github.event.inputs.catalog-id }}" `
-      #       --catalog-api-key "${{ secrets.CATALOG_API_KEY }}"
-      #   continue-on-error: true
 
-      # - name: Archive Results
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: mccResults
-      #     path: |
-      #       ${{ github.workspace }}/mccResults.json
-      #       ${{ github.workspace }}/mccResults.html
-      #   continue-on-error: true
-  
       - name: Upload results as artifact
         uses: actions/upload-artifact@v4
         with:

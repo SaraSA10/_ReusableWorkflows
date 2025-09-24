@@ -102,8 +102,8 @@ jobs:
       #     echo "PROTOCOL_VERSION=$protocol_version" >> $GITHUB_ENV
       #   shell: bash
       
-      # - name: Create output directory
-      #   run: mkdir -p ${{ inputs.output-directory }}
+      - name: Create output directory
+        run: mkdir -p ${{ inputs.output-directory }}
 
       - name: Determine command parameters
         id: params

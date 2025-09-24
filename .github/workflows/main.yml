@@ -155,21 +155,21 @@ jobs:
       #       --catalog-api-key "${{ secrets.CATALOG_API_KEY }}"
       #   continue-on-error: true
 
-      - name: Archive Results
-        uses: actions/upload-artifact@v4
-        with:
-          name: mccResults
-          path: |
-            ${{ github.workspace }}/mccResults.json
-            ${{ github.workspace }}/mccResults.html
-        continue-on-error: true
-  
-      # - name: Upload results as artifact
+      # - name: Archive Results
       #   uses: actions/upload-artifact@v4
       #   with:
-      #     name: major-change-checker-results
-      #     path: ${{ inputs.output-directory }}/*
-      #     retention-days: 30
+      #     name: mccResults
+      #     path: |
+      #       ${{ github.workspace }}/mccResults.json
+      #       ${{ github.workspace }}/mccResults.html
+      #   continue-on-error: true
+  
+      - name: Upload results as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: major-change-checker-results
+          path: ${{ inputs.output-directory }}/*
+          retention-days: 30
 
       - name: Check for critical issues
         run: |

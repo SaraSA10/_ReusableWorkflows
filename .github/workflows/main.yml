@@ -103,31 +103,31 @@ jobs:
           echo solutionFilePath=$(find . -type f -name '*.sln') >> $GITHUB_OUTPUT
         shell: bash
 
-      - name: Verify protocol.xml exists
-        id: verify-protocol
-        run: |
-          solutionDir="${{ steps.find-sln-file.outputs.solutionDir }}"
+      # - name: Verify protocol.xml exists
+      #   id: verify-protocol
+      #   run: |
+      #     solutionDir="${{ steps.find-sln-file.outputs.solutionDir }}"
           
-          # Look for protocol.xml in the solution directory
-          if [ -f "$solutionDir/protocol.xml" ]; then
-            echo "Found protocol.xml in solution directory"
-            echo "protocolPath=$solutionDir/protocol.xml" >> $GITHUB_OUTPUT
-          elif [ -f "$solutionDir/Protocol.xml" ]; then
-            echo "Found Protocol.xml in solution directory"
-            echo "protocolPath=$solutionDir/Protocol.xml" >> $GITHUB_OUTPUT
-          else
-            # Search recursively in the solution directory
-            protocolFile=$(find "$solutionDir" -name "protocol.xml" -o -name "Protocol.xml" | head -n 1)
-            if [ -n "$protocolFile" ]; then
-              echo "Found protocol file at: $protocolFile"
-              echo "protocolPath=$protocolFile" >> $GITHUB_OUTPUT
-            else
-              echo "Error: No protocol.xml or Protocol.xml found in or under solution directory: $solutionDir"
-              echo "Files in solution directory:"
-              find "$solutionDir" -type f -name "*.xml" | head -10
-              exit 1
-            fi
-          fi
+      #     # Look for protocol.xml in the solution directory
+      #     if [ -f "$solutionDir/protocol.xml" ]; then
+      #       echo "Found protocol.xml in solution directory"
+      #       echo "protocolPath=$solutionDir/protocol.xml" >> $GITHUB_OUTPUT
+      #     elif [ -f "$solutionDir/Protocol.xml" ]; then
+      #       echo "Found Protocol.xml in solution directory"
+      #       echo "protocolPath=$solutionDir/Protocol.xml" >> $GITHUB_OUTPUT
+      #     else
+      #       # Search recursively in the solution directory
+      #       protocolFile=$(find "$solutionDir" -name "protocol.xml" -o -name "Protocol.xml" | head -n 1)
+      #       if [ -n "$protocolFile" ]; then
+      #         echo "Found protocol file at: $protocolFile"
+      #         echo "protocolPath=$protocolFile" >> $GITHUB_OUTPUT
+      #       else
+      #         echo "Error: No protocol.xml or Protocol.xml found in or under solution directory: $solutionDir"
+      #         echo "Files in solution directory:"
+      #         find "$solutionDir" -type f -name "*.xml" | head -10
+      #         exit 1
+      #       fi
+      #     fi
 
       - name: Create output directory
         run: mkdir -p ${{ inputs.output-directory }}

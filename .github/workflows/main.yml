@@ -42,16 +42,10 @@ on:
         type: string
 
       output-format:
-        description: 'Output format'
+        description: 'Comma-separated output formats (e.g. "JSON,HTML" or "XML")'
         required: false
-        type: choice
+        type: string
         default: 'JSON,HTML'
-        options:
-          - JSON
-          - XML
-          - HTML
-          - 'JSON,HTML'
-          - 'JSON,XML,HTML'
 
       include-suppressed:
         description: 'Include suppressed results'

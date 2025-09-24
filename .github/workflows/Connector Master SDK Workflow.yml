@@ -21,7 +21,57 @@ on:
       use-oidc:
         required: false
         type: string
+      solution-path:
+        description: 'Path to the solution file (.sln)'
+        required: true
+        type: string
+        default: '.'
 
+      output-directory:
+        description: 'Directory for results'
+        required: true
+        type: string
+        default: './mcc-results'
+
+      use-catalog:
+        description: 'Use Catalog API to download previous version'
+        required: false
+        type: boolean
+        default: true
+
+      catalog-id:
+        description: 'Catalog ID for previous version'
+        required: false  
+        type: string
+
+      old-protocol-path:
+        description: 'Path to old protocol.xml (alternative to catalog)'
+        required: false
+        type: string
+
+      output-file-name:
+        description: 'Results file name'
+        required: false
+        type: string
+
+      output-format:
+        description: 'Comma-separated output formats (e.g. "JSON", "HTML" or "XML")'
+        required: false
+        type: string
+        default: 'JSON'
+
+      include-suppressed:
+        description: 'Include suppressed results'
+        required: false
+        type: boolean
+        default: false
+
+      buildConfiguration:
+        description: 'Build configuration'
+        required: false
+        type: string
+        default: 'Release'
+        
       sonarCloudProjectName:
         required: false
         type: string
@@ -35,6 +85,9 @@ on:
       sonarCloudToken:
         required: false
       azureToken:
+        required: false
+      catalog-api-key:
+        description: 'Catalog API key'
         required: false
 
 jobs:
@@ -107,7 +160,7 @@ jobs:
       - name: Install .NET Tools
         run: |
           dotnet tool install -g dotnet-sonarscanner
-          dotnet tool install -g Skyline.DataMiner.CICD.Tools.Validator
+          dotnet tool install -g Skyline.DataMiner.CICD.Tools.Validator --prerelease
           dotnet tool install -g Skyline.DataMiner.CICD.Tools.Sbom --version 1.0.*
 
       - name: Enable Skyline NuGet Registries
@@ -477,6 +530,80 @@ jobs:
         run: |
           echo solutionFilePath=$(find . -type f -name '*.sln') >> $GITHUB_OUTPUT
         shell: bash
+
+      - name: Create output directory
+        run: mkdir -p ${{ inputs.output-directory }}
+
+      - name: Determine command parameters
+        id: params
+        run: |
+          # Use the found solution file path
+          SOLUTION_PATH="${{ steps.find-sln-file.outputs.solutionFilePath }}"
+          
+          # Start building the command
+          CMD="dataminer-validator major-change-checker --mcc-solution-path \"$SOLUTION_PATH\" --mcc-output-directory \"${{ inputs.output-directory }}\""
+          
+          # Add optional parameters
+          if [ -n "${{ inputs.output-file-name }}" ]; then
+            CMD="$CMD --output-file-name \"${{ inputs.output-file-name }}\""
+          fi
+
+          # Handle output formats
+          if [ -n "${{ inputs.output-format }}" ]; then
+            IFS=',' read -ra FORMAT_ARRAY <<< "$(echo "${{ inputs.output-format }}" | tr -d ' ')"
+            for format in "${FORMAT_ARRAY[@]}"; do
+              CMD="$CMD --output-format $format"
+            done
+          fi
+
+          if [ "${{ inputs.include-suppressed }}" = "true" ]; then
+            CMD="$CMD --include-suppressed"
+          fi
+
+          # Determine which approach to use (catalog or old protocol path)
+          if [ "${{ inputs.use-catalog }}" = "true" ] && [ -n "${{ inputs.catalog-id }}" ]; then
+            CMD="$CMD --catalog-id \"${{ inputs.catalog-id }}\""
+            if [ -n "${{ secrets.catalog-api-key }}" ]; then
+              CMD="$CMD --catalog-api-key \"${{ secrets.catalog-api-key }}\""
+            fi
+          elif [ -n "${{ inputs.old-protocol-path }}" ]; then
+            CMD="$CMD --mcc-old-protocol-path \"${{ inputs.old-protocol-path }}\""
+          else
+            echo "Error: Either catalog-id or old-protocol-path must be provided"
+            echo "Use catalog approach: ${{ inputs.use-catalog }}"
+            echo "Catalog ID provided: ${{ inputs.catalog-id }}"
+            echo "Old protocol path provided: ${{ inputs.old-protocol-path }}"
+            exit 1
+          fi
+
+          echo "command=$CMD" >> $GITHUB_OUTPUT
+          echo "Full command to execute: $CMD"
+
+      - name: Run Major Change Checker
+        run: ${{ steps.params.outputs.command }}
+        continue-on-error: true
+        
+      - name: Upload results as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: major-change-checker-results
+          path: ${{ inputs.output-directory }}/*
+          retention-days: 30
+        continue-on-error: true
+        
+      - name: Check for critical issues
+        run: |
+          if ls ${{ inputs.output-directory }}/*.json 1> /dev/null 2>&1; then
+            CRITICAL_COUNT=$(jq '.CriticalIssueCount' ${{ inputs.output-directory }}/*.json)
+            if [ "$CRITICAL_COUNT" -gt 0 ]; then
+              echo "Found $CRITICAL_COUNT critical issues"
+              exit 1
+            else
+              echo "No critical issues found"
+            fi
+          else
+            echo "No results file found"
+          fi
 
       - name: Enable Skyline NuGet Registries
         if: github.repository_owner == 'SkylineCommunications'

@@ -63,7 +63,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v3
       with:
-        dotnet-version: '6.0.x'
+        dotnet-version: '8.0.x'
         
     - name: Install Validator Tool
       run: dotnet tool install --global Skyline.DataMiner.CICD.Tools.Validator --version 1.5.0-alpha
@@ -129,5 +129,5 @@ jobs:
             echo "No critical issues found"
           fi
         else
-          echo "⚠️  No results file found"
+          echo " No results file found"
         fi

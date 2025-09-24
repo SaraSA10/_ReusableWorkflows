@@ -74,85 +74,86 @@ jobs:
         with:
           dotnet-version: '8.0.x'
           
-      - name: Find .sln file
-        id: findSlnFile
-        run: |
-          echo solutionFilePath=$(find . -type f -name '*.sln') >> $GITHUB_OUTPUT
-        shell: bash
+      # - name: Find .sln file
+      #   id: findSlnFile
+      #   run: |
+      #     echo solutionFilePath=$(find . -type f -name '*.sln') >> $GITHUB_OUTPUT
+      #   shell: bash
         
       - name: Install Validator Tool
         run: dotnet tool install --global Skyline.DataMiner.CICD.Tools.Validator --version 1.5.0-alpha
       
-      - name: NuGet restore solution
-        run: dotnet restore "${{ steps.findSlnFile.outputs.solutionFilePath }}"
+      # - name: NuGet restore solution
+      #   run: dotnet restore "${{ steps.findSlnFile.outputs.solutionFilePath }}"
       
-      - name: Find and extract Protocol Version
-        if: github.ref_type != 'tag'
-        run: |
-          # Find the protocol.xml file
-          xml_file=$(find "${{ github.workspace }}" -maxdepth 1 -name "protocol.xml" -or -name "Protocol.xml" | head -n 1)
+      # - name: Find and extract Protocol Version
+      #   if: github.ref_type != 'tag'
+      #   run: |
+      #     # Find the protocol.xml file
+      #     xml_file=$(find "${{ github.workspace }}" -maxdepth 1 -name "protocol.xml" -or -name "Protocol.xml" | head -n 1)
 
-          # Extract the Protocol Version using awk and store it in a variable
-          protocol_version=$(awk -F '[><]' '/<Version>/ {print $3}' "$xml_file")
+      #     # Extract the Protocol Version using awk and store it in a variable
+      #     protocol_version=$(awk -F '[><]' '/<Version>/ {print $3}' "$xml_file")
 
-          # Print the extracted version for verification
-          echo "Extracted Protocol Version: $protocol_version"
+      #     # Print the extracted version for verification
+      #     echo "Extracted Protocol Version: $protocol_version"
 
-          # Set the extracted version as an environment variable for future use
-          echo "PROTOCOL_VERSION=$protocol_version" >> $GITHUB_ENV
-        shell: bash
+      #     # Set the extracted version as an environment variable for future use
+      #     echo "PROTOCOL_VERSION=$protocol_version" >> $GITHUB_ENV
+      #   shell: bash
+      
       # - name: Create output directory
       #   run: mkdir -p ${{ inputs.output-directory }}
 
-      # - name: Determine command parameters
-      #   id: params
-      #   run: |
-      #     CMD="dataminer-validator major-change-checker --mcc-solution-path \"${{ inputs.solution-path }}\" --mcc-output-directory \"${{ inputs.output-directory }}\""
-          
-      #     if [ -n "${{ inputs.output-file-name }}" ]; then
-      #       CMD="$CMD --output-file-name \"${{ inputs.output-file-name }}\""
-      #     fi
-
-      #     # Fix: Handle output formats as separate arguments
-      #     if [ -n "${{ inputs.output-format }}" ]; then
-      #     # Remove any spaces and split by comma, then pass as separate arguments
-      #       IFS=',' read -ra FORMAT_ARRAY <<< "$(echo "${{ inputs.output-format }}" | tr -d ' ')"
-      #       for format in "${FORMAT_ARRAY[@]}"; do
-      #       CMD="$CMD --output-format $format"
-      #       done
-      #     fi
-
-      #     if [ "${{ inputs.include-suppressed }}" = "true" ]; then
-      #       CMD="$CMD --include-suppressed"
-      #     fi
-
-      #     if [ "${{ inputs.use-catalog }}" = "true" ] && [ -n "${{ inputs.catalog-id }}" ]; then
-      #       CMD="$CMD --catalog-id \"${{ inputs.catalog-id }}\""
-      #       if [ -n "${{ secrets.catalog-api-key }}" ]; then
-      #         CMD="$CMD --catalog-api-key \"${{ secrets.catalog-api-key }}\""
-      #       fi
-      #     elif [ -n "${{ inputs.old-protocol-path }}" ]; then
-      #       CMD="$CMD --mcc-old-protocol-path \"${{ inputs.old-protocol-path }}\""
-      #     else
-      #       echo "Error: Either catalog-id or old-protocol-path must be provided"
-      #       exit 1
-      #     fi
-
-      #     echo "command=$CMD" >> $GITHUB_OUTPUT
-
-      # - name: Run Major Change Checker
-      #   run: ${{ steps.params.outputs.command }}
-      #   continue-on-error: true
-      
-      - name: Run Major Change Checker
+      - name: Determine command parameters
+        id: params
         run: |
-          dataminer-validator major-change-checker `
-            --mcc-solution-path "${{ github.workspace }}" `
-            --mcc-output-directory "${{ github.workspace }}" `
-            --output-file-name "mccResults" `
-            --catalog-id "${{ github.event.inputs.catalog-id }}" `
-            --catalog-api-key "${{ secrets.CATALOG_API_KEY }}"
+          CMD="dataminer-validator major-change-checker --mcc-solution-path \"${{ inputs.solution-path }}\" --mcc-output-directory \"${{ inputs.output-directory }}\""
+          
+          if [ -n "${{ inputs.output-file-name }}" ]; then
+            CMD="$CMD --output-file-name \"${{ inputs.output-file-name }}\""
+          fi
+
+          # Fix: Handle output formats as separate arguments
+          if [ -n "${{ inputs.output-format }}" ]; then
+          # Remove any spaces and split by comma, then pass as separate arguments
+            IFS=',' read -ra FORMAT_ARRAY <<< "$(echo "${{ inputs.output-format }}" | tr -d ' ')"
+            for format in "${FORMAT_ARRAY[@]}"; do
+            CMD="$CMD --output-format $format"
+            done
+          fi
+
+          if [ "${{ inputs.include-suppressed }}" = "true" ]; then
+            CMD="$CMD --include-suppressed"
+          fi
+
+          if [ "${{ inputs.use-catalog }}" = "true" ] && [ -n "${{ inputs.catalog-id }}" ]; then
+            CMD="$CMD --catalog-id \"${{ inputs.catalog-id }}\""
+            if [ -n "${{ secrets.catalog-api-key }}" ]; then
+              CMD="$CMD --catalog-api-key \"${{ secrets.catalog-api-key }}\""
+            fi
+          elif [ -n "${{ inputs.old-protocol-path }}" ]; then
+            CMD="$CMD --mcc-old-protocol-path \"${{ inputs.old-protocol-path }}\""
+          else
+            echo "Error: Either catalog-id or old-protocol-path must be provided"
+            exit 1
+          fi
+
+          echo "command=$CMD" >> $GITHUB_OUTPUT
+
+      - name: Run Major Change Checker
+        run: ${{ steps.params.outputs.command }}
         continue-on-error: true
+      
+      # - name: Run Major Change Checker
+      #   run: |
+      #     dataminer-validator major-change-checker `
+      #       --mcc-solution-path "${{ github.workspace }}" `
+      #       --mcc-output-directory "${{ github.workspace }}" `
+      #       --output-file-name "mccResults" `
+      #       --catalog-id "${{ github.event.inputs.catalog-id }}" `
+      #       --catalog-api-key "${{ secrets.CATALOG_API_KEY }}"
+      #   continue-on-error: true
 
       - name: Archive Results
         uses: actions/upload-artifact@v4

@@ -132,7 +132,7 @@ jobs:
           # Use the found solution file path
           SOLUTION_PATH="${{ steps.find-sln-file.outputs.solutionFilePath }}"
           
-          CMD="dataminer-validator major-change-checker --mcc-solution-path \"$SOLUTION_PATH\" --mcc-output-directory \"${{ inputs.output-directory }}\""
+          CMD="dataminer-validator major-change-checker --mcc-solution-path \"$SOLUTION_PATH\" --mcc-output-directory \"${{ inputs.output-directory }}\" --catalog-id \"${{ vars.CATALOG_IDENTIFIER }}\" --catalog-api-key\"${{ secrets.CATALOG_API_KEY }}\""
           
           if [ -n "${{ inputs.output-file-name }}" ]; then
             CMD="$CMD --output-file-name \"${{ inputs.output-file-name }}\""

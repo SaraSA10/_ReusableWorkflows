@@ -37,7 +37,7 @@ on:
         type: string
 
       output-format:
-        description: 'Comma-separated output formats (e.g. "JSON,HTML" or "XML")'
+        description: 'Comma-separated output formats (e.g. "JSON", "HTML" or "XML")'
         required: false
         type: string
         default: 'JSON'

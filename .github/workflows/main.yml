@@ -23,7 +23,7 @@ on:
 
       catalog-id:
         description: 'Catalog ID for previous version'
-        required: true
+        required: false  # Changed to false since it's not always required
         type: string
 
       old-protocol-path:
@@ -132,13 +132,15 @@ jobs:
           # Use the found solution file path
           SOLUTION_PATH="${{ steps.find-sln-file.outputs.solutionFilePath }}"
           
-          CMD="dataminer-validator major-change-checker --mcc-solution-path \"$SOLUTION_PATH\" --mcc-output-directory \"${{ inputs.output-directory }}\" --catalog-id \"${{ vars.CATALOG_IDENTIFIER }}\" --catalog-api-key\"${{ secrets.CATALOG_API_KEY }}\""
+          # Start building the command
+          CMD="dataminer-validator major-change-checker --mcc-solution-path \"$SOLUTION_PATH\" --mcc-output-directory \"${{ inputs.output-directory }}\""
           
+          # Add optional parameters
           if [ -n "${{ inputs.output-file-name }}" ]; then
             CMD="$CMD --output-file-name \"${{ inputs.output-file-name }}\""
           fi
 
-          # Handle output formats as separate arguments
+          # Handle output formats
           if [ -n "${{ inputs.output-format }}" ]; then
             IFS=',' read -ra FORMAT_ARRAY <<< "$(echo "${{ inputs.output-format }}" | tr -d ' ')"
             for format in "${FORMAT_ARRAY[@]}"; do
@@ -150,6 +152,7 @@ jobs:
             CMD="$CMD --include-suppressed"
           fi
 
+          # Determine which approach to use (catalog or old protocol path)
           if [ "${{ inputs.use-catalog }}" = "true" ] && [ -n "${{ inputs.catalog-id }}" ]; then
             CMD="$CMD --catalog-id \"${{ inputs.catalog-id }}\""
             if [ -n "${{ secrets.catalog-api-key }}" ]; then
@@ -159,6 +162,9 @@ jobs:
             CMD="$CMD --mcc-old-protocol-path \"${{ inputs.old-protocol-path }}\""
           else
             echo "Error: Either catalog-id or old-protocol-path must be provided"
+            echo "Use catalog approach: ${{ inputs.use-catalog }}"
+            echo "Catalog ID provided: ${{ inputs.catalog-id }}"
+            echo "Old protocol path provided: ${{ inputs.old-protocol-path }}"
             exit 1
           fi
 

@@ -180,7 +180,8 @@ jobs:
           name: major-change-checker-results
           path: ${{ inputs.output-directory }}/*
           retention-days: 30
-
+        continue-on-error: true
+        
       - name: Check for critical issues
         run: |
           if ls ${{ inputs.output-directory }}/*.json 1> /dev/null 2>&1; then

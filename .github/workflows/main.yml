@@ -40,7 +40,7 @@ on:
         description: 'Comma-separated output formats (e.g. "JSON,HTML" or "XML")'
         required: false
         type: string
-        default: 'JSON,HTML'
+        default: 'JSON'
 
       include-suppressed:
         description: 'Include suppressed results'

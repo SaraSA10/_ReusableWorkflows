@@ -23,7 +23,7 @@ on:
 
       catalog-id:
         description: 'Catalog ID for previous version'
-        required: false
+        required: true
         type: string
 
       old-protocol-path:

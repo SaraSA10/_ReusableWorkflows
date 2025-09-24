@@ -77,25 +77,31 @@ jobs:
       - name: Install Validator Tool
         run: dotnet tool install --global Skyline.DataMiner.CICD.Tools.Validator --version 1.5.0-alpha
 
+      # - name: Find .sln file
+      #   id: find-sln-file
+      #   run: |
+      #     # If solution-path is a directory, find the .sln file in it
+      #     if [ -d "${{ inputs.solution-path }}" ]; then
+      #       solutionFile=$(find "${{ inputs.solution-path }}" -maxdepth 1 -name "*.sln" | head -n 1)
+      #       if [ -z "$solutionFile" ]; then
+      #         echo "No .sln file found in directory: ${{ inputs.solution-path }}"
+      #         exit 1
+      #       fi
+      #       echo "solutionFilePath=$solutionFile" >> $GITHUB_OUTPUT
+      #       echo "solutionDir=$(dirname "$solutionFile")" >> $GITHUB_OUTPUT
+      #     elif [ -f "${{ inputs.solution-path }}" ]; then
+      #       echo "solutionFilePath=${{ inputs.solution-path }}" >> $GITHUB_OUTPUT
+      #       echo "solutionDir=$(dirname "${{ inputs.solution-path }}")" >> $GITHUB_OUTPUT
+      #     else
+      #       echo "Solution path not found: ${{ inputs.solution-path }}"
+      #       exit 1
+      #     fi
+
       - name: Find .sln file
-        id: find-sln-file
+        id: findSlnFile
         run: |
-          # If solution-path is a directory, find the .sln file in it
-          if [ -d "${{ inputs.solution-path }}" ]; then
-            solutionFile=$(find "${{ inputs.solution-path }}" -maxdepth 1 -name "*.sln" | head -n 1)
-            if [ -z "$solutionFile" ]; then
-              echo "No .sln file found in directory: ${{ inputs.solution-path }}"
-              exit 1
-            fi
-            echo "solutionFilePath=$solutionFile" >> $GITHUB_OUTPUT
-            echo "solutionDir=$(dirname "$solutionFile")" >> $GITHUB_OUTPUT
-          elif [ -f "${{ inputs.solution-path }}" ]; then
-            echo "solutionFilePath=${{ inputs.solution-path }}" >> $GITHUB_OUTPUT
-            echo "solutionDir=$(dirname "${{ inputs.solution-path }}")" >> $GITHUB_OUTPUT
-          else
-            echo "Solution path not found: ${{ inputs.solution-path }}"
-            exit 1
-          fi
+          echo solutionFilePath=$(find . -type f -name '*.sln') >> $GITHUB_OUTPUT
+        shell: bash
 
       - name: Verify protocol.xml exists
         id: verify-protocol

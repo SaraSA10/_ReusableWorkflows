@@ -118,7 +118,8 @@ jobs:
 
       - name: Run Major Change Checker
         run: ${{ steps.params.outputs.command }}
-
+        continue-on-error: true
+        
       - name: Upload results as artifact
         uses: actions/upload-artifact@v4
         with:

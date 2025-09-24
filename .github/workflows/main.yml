@@ -26,10 +26,7 @@ on:
         required: false
         type: string
 
-      catalog-api-key:
-        description: 'Catalog API key (should be passed as a secret in workflow)'
-        required: false
-        type: string
+      
 
       old-protocol-path:
         description: 'Path to old protocol.xml (alternative to catalog)'
@@ -53,6 +50,10 @@ on:
         type: boolean
         default: false
 
+      secrets:
+      catalog-api-key:
+        required: false
+      
       buildConfiguration:
         description: 'Build configuration'
         required: false

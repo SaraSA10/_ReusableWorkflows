@@ -234,6 +234,12 @@ jobs:
         continue-on-error: true
         # Force to fail step after specific time.
         timeout-minutes: 5
+      - name: Debug environment
+        run: |
+          echo "Catalog API Key length: ${#CATALOG_API_KEY}"
+          echo "Catalog API Key present: ${{ secrets.CATALOG_API_KEY != '' }}"
+        shell: bash
+
 
       - name: Run Connector Validator
         run: |

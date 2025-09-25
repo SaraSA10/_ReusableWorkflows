@@ -21,6 +21,13 @@ on:
       use-oidc:
         required: false
         type: string
+      catalog-id:
+        required: false
+        type: string
+
+      output-directory:
+        required: false
+        type: string
 
       sonarCloudProjectName:
         required: true
@@ -31,7 +38,7 @@ on:
 
     secrets:
       api-key:
-        required: false
+        required: true
       sonarCloudToken:
         required: false
       azureToken:

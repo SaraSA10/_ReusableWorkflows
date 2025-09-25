@@ -307,43 +307,53 @@ jobs:
       - name: Create output directory
         run: mkdir -p ${{ inputs.output-directory }}
 
-      - name: Determine command parameters
-        id: params
-        run: |
-          # Use the found solution file path
-          SOLUTION_PATH="${{ steps.find-sln-file.outputs.solutionFilePath }}"
+      # - name: Determine command parameters
+      #   id: params
+      #   run: |
+      #     # Use the found solution file path
+      #     SOLUTION_PATH="${{ steps.find-sln-file.outputs.solutionFilePath }}"
     
-          CMD="dataminer-validator major-change-checker --mcc-solution-path \"${SOLUTION_PATH}\" --mcc-output-directory \"${{ inputs.output-directory }}\""
+      #     CMD="dataminer-validator major-change-checker --mcc-solution-path \"${SOLUTION_PATH}\" --mcc-output-directory \"${{ inputs.output-directory }}\""
     
-          if [ -n "${{ inputs.output-file-name }}" ]; then
-          CMD="$CMD --output-file-name \"${{ inputs.output-file-name }}\""
-          fi
+      #     if [ -n "${{ inputs.output-file-name }}" ]; then
+      #     CMD="$CMD --output-file-name \"${{ inputs.output-file-name }}\""
+      #     fi
 
-          if [ -n "${{ inputs.output-format }}" ]; then
-          IFS=',' read -ra FORMAT_ARRAY <<< "$(echo "${{ inputs.output-format }}" | tr -d ' ')"
-          for format in "${FORMAT_ARRAY[@]}"; do
-          CMD="$CMD --output-format $format"
-          done
-          fi
+      #     if [ -n "${{ inputs.output-format }}" ]; then
+      #     IFS=',' read -ra FORMAT_ARRAY <<< "$(echo "${{ inputs.output-format }}" | tr -d ' ')"
+      #     for format in "${FORMAT_ARRAY[@]}"; do
+      #     CMD="$CMD --output-format $format"
+      #     done
+      #     fi
 
-          if [ "${{ inputs.include-suppressed }}" = "true" ]; then
-          CMD="$CMD --include-suppressed"
-          fi
+      #     if [ "${{ inputs.include-suppressed }}" = "true" ]; then
+      #     CMD="$CMD --include-suppressed"
+      #     fi
 
-          if [ "${{ inputs.use-catalog }}" = "true" ]; then
-          if [ -n "${{ inputs.catalog-id }}" ]; then
-          CMD="$CMD --catalog-id \"${{ inputs.catalog-id }}\""
-          fi
-          if [ -n "${{ secrets.catalog-api-key }}" ]; then
-          CMD="$CMD --catalog-api-key \"${{ secrets.catalog-api-key }}\""
-          fi
-          fi
+      #     if [ "${{ inputs.use-catalog }}" = "true" ]; then
+      #     if [ -n "${{ inputs.catalog-id }}" ]; then
+      #     CMD="$CMD --catalog-id \"${{ inputs.catalog-id }}\""
+      #     fi
+      #     if [ -n "${{ secrets.catalog-api-key }}" ]; then
+      #     CMD="$CMD --catalog-api-key \"${{ secrets.catalog-api-key }}\""
+      #     fi
+      #     fi
           
-          echo "command=$CMD" >> $GITHUB_OUTPUT
-          echo "Full command to execute: $CMD"
+      #     echo "command=$CMD" >> $GITHUB_OUTPUT
+      #     echo "Full command to execute: $CMD"
 
+      # - name: Run Major Change Checker
+      #   run: ${{ steps.params.outputs.command }}
+      #   continue-on-error: true
+      
       - name: Run Major Change Checker
-        run: ${{ steps.params.outputs.command }}
+        run: |
+          dataminer-validator major-change-checker `
+            --solution-path "${{ github.workspace }}" `
+            --output-directory "${{ github.workspace }}" `
+            --output-file-name "mccResults" `
+            --catalog-id "${{vars.CATALOG_IDENTIFIER}}`
+            --catalog-api-key "${{secrets.CATALOG_API_KEY}}
         continue-on-error: true
         
       - name: Upload results as artifact

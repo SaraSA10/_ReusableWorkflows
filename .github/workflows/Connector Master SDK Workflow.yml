@@ -366,11 +366,11 @@ jobs:
       - name: Run Major Change Checker
         run: |
           dataminer-validator major-change-checker `
-          --mcc-solution-path "${{ steps.find-protocol.outputs.protocolDir }}" `
-          --mcc-output-directory "${{ github.workspace }}" `
-          --output-file-name "mccResults" `
-          --catalog-id "${{ inputs.catalog-id }}" `
-          --catalog-api-key "${{ secrets.catalog-api-key }}"
+            --mcc-solution-path "${{ github.workspace }}" `
+            --mcc-output-directory "${{ github.workspace }}" `
+            --output-file-name "mccResults" `
+            --catalog-id "${{ inputs.catalog-id }}" `
+            --catalog-api-key "${{ secrets.catalog-api-key }}"
         continue-on-error: true
 
       - name: Run Major Change Checker (Robust)
@@ -378,31 +378,31 @@ jobs:
           $solutionPath = "${{ github.workspace }}"
           $catalogId = "${{ inputs.catalog-id }}"
           $apiKey = "${{ secrets.catalog-api-key }}"
-    
+          
           # Check if protocol.xml exists
           if (Test-Path "$solutionPath\protocol.xml") {
-          Write-Host "protocol.xml found at: $solutionPath\protocol.xml"
+            Write-Host "protocol.xml found at: $solutionPath\protocol.xml"
           } else {
-          # Search for protocol.xml
-          $protocolFile = Get-ChildItem -Path $solutionPath -Filter "protocol.xml" -Recurse | Select-Object -First 1
-          if ($protocolFile) {
-            $solutionPath = $protocolFile.DirectoryName
-            Write-Host "protocol.xml found at: $protocolFile"
+            # Search for protocol.xml
+            $protocolFile = Get-ChildItem -Path $solutionPath -Filter "protocol.xml" -Recurse | Select-Object -First 1
+            if ($protocolFile) {
+              $solutionPath = $protocolFile.DirectoryName
+              Write-Host "protocol.xml found at: $protocolFile"
             } else {
-            Write-Host "ERROR: protocol.xml not found anywhere!"
-            Get-ChildItem -Path $solutionPath -Recurse | Where-Object { $_.Name -like "*protocol*" } | ForEach-Object { Write-Host "Found: $($_.FullName)" }
-            exit 1
+              Write-Host "ERROR: protocol.xml not found anywhere!"
+              Get-ChildItem -Path $solutionPath -Recurse | Where-Object { $_.Name -like "*protocol*" } | ForEach-Object { Write-Host "Found: $($_.FullName)" }
+              exit 1
             }
           }
-    
+          
           dataminer-validator major-change-checker `
-          --mcc-solution-path "$solutionPath" `
-          --mcc-output-directory "${{ github.workspace }}" `
-          --output-file-name "mccResults" `
-          --catalog-id "$catalogId" `
-          --catalog-api-key "$apiKey"
-          continue-on-error: true
-          shell: pwsh
+            --mcc-solution-path "$solutionPath" `
+            --mcc-output-directory "${{ github.workspace }}" `
+            --output-file-name "mccResults" `
+            --catalog-id "$catalogId" `
+            --catalog-api-key "$apiKey"
+        continue-on-error: true
+        shell: pwsh  # This was missing the 'shell' key
         
       - name: Upload results as artifact
         uses: actions/upload-artifact@v4

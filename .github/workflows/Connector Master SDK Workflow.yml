@@ -1,12 +1,11 @@
 name: Connector Master Workflow
 
 on:
-  push:
-    branches: [ "**" ]
-    tags: [ "**" ]
-  pull_request:
-    branches: [ "**" ]
-  workflow_dispatch:
+  workflow_call:
+    outputs:
+      quality_gate:
+        description: "Results from Skyline Quality Gate."
+        value: ${{ jobs.validate_skyline_quality_gate.outputs.quality }}
 
 jobs:
   validate_skyline_quality_gate:

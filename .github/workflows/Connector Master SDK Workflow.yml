@@ -299,8 +299,11 @@ jobs:
             Write-Host "Found protocol file at: $protocolPath"
             $protocolDir = Split-Path -Path $protocolPath -Parent
             
+            # Change to the directory containing protocol.xml
+            Set-Location -Path $protocolDir
+            
             dataminer-validator major-change-checker `
-              --mcc-solution-path "$protocolDir" `
+              --mcc-solution-path "." `
               --mcc-output-directory "${{ github.workspace }}" `
               --output-file-name "mccResults" `
               --catalog-id "${{vars.CATALOG_IDENTIFIER}}" `

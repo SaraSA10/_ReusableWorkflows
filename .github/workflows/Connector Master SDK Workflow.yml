@@ -43,7 +43,7 @@ on:
         type: boolean
 
     secrets:
-      api-key:
+      catalog-api-key:
         required: true
       sonarCloudToken:
         required: false

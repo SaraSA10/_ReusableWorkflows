@@ -349,8 +349,8 @@ jobs:
       - name: Run Major Change Checker
         run: |
           dataminer-validator major-change-checker `
-            --solution-path "${{ github.workspace }}" `
-            --output-directory "${{ github.workspace }}" `
+            --mcc-solution-path "${{ github.workspace }}" `
+            --mcc-output-directory "${{ github.workspace }}" `
             --output-file-name "mccResults" `
             --catalog-id "${{vars.CATALOG_IDENTIFIER}}`
             --catalog-api-key "${{secrets.CATALOG_API_KEY}}

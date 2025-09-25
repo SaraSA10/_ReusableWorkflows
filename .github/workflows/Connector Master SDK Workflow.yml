@@ -385,7 +385,7 @@ jobs:
           --catalog-id "$catalogId" `
           --catalog-api-key "$apiKey"
           continue-on-error: true
-  
+          shell: pwsh
         
       - name: Upload results as artifact
         uses: actions/upload-artifact@v4

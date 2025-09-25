@@ -272,20 +272,27 @@ jobs:
             echo "Skipping Major Change Checker - catalog API key not available"
             echo "To enable Major Change Checker, set the api-key secret"
           fi
-        continue-on-error: true
+        # continue-on-error: true
         shell: bash
 
-      - name: Archive Results
+      - name: Archive Results Validator
         uses: actions/upload-artifact@v4
         with:
           name: validateResults
           path: |
             ${{ github.workspace }}/validateResults.json
             ${{ github.workspace }}/validateResults.html
+        continue-on-error: true
+        
+      - name: Archive Results MCC
+        uses: actions/upload-artifact@v4
+        with:
+          name: MajorChangeCheckerResults
+          path: |
             ${{ github.workspace }}/mccResults.json
             ${{ github.workspace }}/mccResults.html
         continue-on-error: true
-
+        
       - name: Validator Quality Gate
         id: validator-quality-gate
         run: |

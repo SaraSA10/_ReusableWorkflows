@@ -313,7 +313,7 @@ jobs:
               --mcc-output-directory "${{ github.workspace }}" `
               --output-file-name "mccResults" `
               --catalog-id "${{vars.CATALOG_IDENTIFIER}}" `
-              --api-key "${{secrets.API_KEY}}"
+              --catalog-api-key "${{secrets.API_KEY}}"
           } else {
             Write-Host "No protocol.xml file found. Skipping MCC."
             # Create empty result file to prevent failures

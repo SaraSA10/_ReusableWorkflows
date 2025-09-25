@@ -244,37 +244,47 @@ jobs:
             --perform-restore false
         continue-on-error: true
 
+      # - name: Run Major Change Checker
+      #   id: major-change-checker
+      #   run: |
+      #     # Check if we have catalog API key for MCC
+      #     if [ -n "${{ secrets.CATALOG_API_KEY }}" ]; then
+      #       echo "Running Major Change Checker with Catalog API..."
+            
+      #       # Build the base command
+      #       command="dataminer-validator major-change-checker \
+      #         --mcc-solution-path \"${{ github.workspace }}\" \
+      #         --mcc-output-directory \"${{ github.workspace }}\" \
+      #         --output-file-name \"mccResults\" \
+      #         --catalog-api-key \"${{ secrets.CATALOG_API_KEY }}\""
+            
+      #       # Add catalog ID if available (optional)
+      #       if [ -n "${{ vars.CATALOG_IDENTIFIER }}" ]; then
+      #         command="$command --catalog-id \"${{ vars.CATALOG_IDENTIFIER }}\""
+      #         echo "Using catalog identifier: ${{ vars.CATALOG_IDENTIFIER }}"
+      #       else
+      #         echo "No catalog identifier provided - MCC will search public catalog"
+      #       fi
+            
+      #       # Execute the command
+      #       eval $command
+      #     else
+      #       echo "Skipping Major Change Checker - catalog API key not available"
+      #       echo "To enable Major Change Checker, set the api-key secret"
+      #     fi
+      #   # continue-on-error: true
+      #   shell: bash
+      
       - name: Run Major Change Checker
-        id: major-change-checker
         run: |
-          # Check if we have catalog API key for MCC
-          if [ -n "${{ secrets.CATALOG_API_KEY }}" ]; then
-            echo "Running Major Change Checker with Catalog API..."
-            
-            # Build the base command
-            command="dataminer-validator major-change-checker \
-              --mcc-solution-path \"${{ github.workspace }}\" \
-              --mcc-output-directory \"${{ github.workspace }}\" \
-              --output-file-name \"mccResults\" \
-              --catalog-api-key \"${{ secrets.CATALOG_API_KEY }}\""
-            
-            # Add catalog ID if available (optional)
-            if [ -n "${{ vars.CATALOG_IDENTIFIER }}" ]; then
-              command="$command --catalog-id \"${{ vars.CATALOG_IDENTIFIER }}\""
-              echo "Using catalog identifier: ${{ vars.CATALOG_IDENTIFIER }}"
-            else
-              echo "No catalog identifier provided - MCC will search public catalog"
-            fi
-            
-            # Execute the command
-            eval $command
-          else
-            echo "Skipping Major Change Checker - catalog API key not available"
-            echo "To enable Major Change Checker, set the api-key secret"
-          fi
-        # continue-on-error: true
-        shell: bash
-
+          dataminer-validator major-change-checker `
+            --mcc-solution-path "${{ github.workspace }}" `
+            --mcc-output-directory "${{ github.workspace }}" `
+            --output-file-name "mccResults" `
+            --catalog-id "${{vars.CATALOG_IDENTIFIER}}"`
+            --catalog-api-key "${{seceret.CATALOG_API_KEY}}"
+        continue-on-error: true
+        
       - name: Archive Results Validator
         uses: actions/upload-artifact@v4
         with:

@@ -21,59 +21,9 @@ on:
       use-oidc:
         required: false
         type: string
-      solution-path:
-        description: 'Path to the solution file (.sln)'
-        required: true
-        type: string
-        default: '.'
 
-      output-directory:
-        description: 'Directory for results'
-        required: true
-        type: string
-        default: './mcc-results'
-
-      use-catalog:
-        description: 'Use Catalog API to download previous version'
-        required: false
-        type: boolean
-        default: true
-
-      catalog-id:
-        description: 'Catalog ID for previous version'
-        required: false  
-        type: string
-
-      old-protocol-path:
-        description: 'Path to old protocol.xml (alternative to catalog)'
-        required: false
-        type: string
-
-      output-file-name:
-        description: 'Results file name'
-        required: false
-        type: string
-
-      output-format:
-        description: 'Comma-separated output formats (e.g. "JSON", "HTML" or "XML")'
-        required: false
-        type: string
-        default: 'JSON'
-
-      include-suppressed:
-        description: 'Include suppressed results'
-        required: false
-        type: boolean
-        default: false
-
-      buildConfiguration:
-        description: 'Build configuration'
-        required: false
-        type: string
-        default: 'Release'
-        
       sonarCloudProjectName:
-        required: false
+        required: true
         type: string
       debug:
         required: false
@@ -85,9 +35,6 @@ on:
       sonarCloudToken:
         required: false
       azureToken:
-        required: false
-      catalog-api-key:
-        description: 'Catalog API key'
         required: false
 
 jobs:
@@ -127,7 +74,7 @@ jobs:
             # Export as environment variable
             echo "$env_var_name=$secret_value" >> "$GITHUB_ENV"
           done
-        continue-on-error: true
+
       - name: Overwrite default secrets with user-defined secrets
         shell: bash
         run: |
@@ -140,7 +87,7 @@ jobs:
             echo "Using provided sonarCloudToken secret"
             echo "SONAR_TOKEN=${{ secrets.sonarCloudToken }}" >> "$GITHUB_ENV"
           fi
-        continue-on-error: true
+
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
@@ -156,28 +103,11 @@ jobs:
         run: |
           echo solutionFilePath=$(find . -type f -name '*.sln') >> $GITHUB_OUTPUT
         shell: bash
-      # - name: Find Protocol.xml
-      #   id: find-protocol
-      #   run: |
-      #     # Search for protocol.xml recursively
-      #     $protocolFile = Get-ChildItem -Path "${{ github.workspace }}" -Filter "protocol.xml" -Recurse | Select-Object -First 1
-      #     if ($protocolFile) {
-      #     $protocolDir = $protocolFile.DirectoryName
-      #     $protocolPath = $protocolFile.FullName
-      #     echo "protocolDir=$protocolDir" >> $env:GITHUB_OUTPUT
-      #     echo "protocolPath=$protocolPath" >> $env:GITHUB_OUTPUT
-      #     echo "Found protocol.xml at: $protocolPath"
-      #     } else {
-      #     Write-Host "ERROR: protocol.xml not found!"
-      #     Get-ChildItem -Path "${{ github.workspace }}" -Recurse | Where-Object { $_.Name -like "*protocol*" } | ForEach-Object { Write-Host "Found: $($_.FullName)" }
-      #     exit 1
-      #     }
-      #     shell: pwsh
-          
+
       - name: Install .NET Tools
         run: |
           dotnet tool install -g dotnet-sonarscanner
-          dotnet tool install -g Skyline.DataMiner.CICD.Tools.Validator --prerelease
+          dotnet tool install -g Skyline.DataMiner.CICD.Tools.Validator
           dotnet tool install -g Skyline.DataMiner.CICD.Tools.Sbom --version 1.0.*
 
       - name: Enable Skyline NuGet Registries
@@ -214,7 +144,7 @@ jobs:
           with open(env_file, "a") as myfile:
               myfile.write("lowerCaseOwner=" + str.lower("${{ github.repository_owner }}"))
         shell: python
-        continue-on-error: true
+
       - name: Get SonarCloud Status
         id: get-sonarcloud-status
         run: |
@@ -230,25 +160,25 @@ jobs:
           # Output the JSON response if valid
           echo "Returned response: $sonarCloudProjectStatus"
           echo "sonarCloudProjectStatus=$sonarCloudProjectStatus" >> $GITHUB_OUTPUT
-        continue-on-error: true
+        continue-on-error: false
         shell: bash
-         
-      # - name: Trigger Initial Analysis
-      #   if: fromJson(steps.get-sonarcloud-status.outputs.sonarCloudProjectStatus).projectStatus.status  == 'NONE'
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
-      #   run: |
-      #       dotnet sonarscanner begin `
-      #         /k:"${{ inputs.sonarCloudProjectName }}" `
-      #         /o:"${{ env.lowerCaseOwner }}" `
-      #         /d:sonar.token="${{ env.SONAR_TOKEN }}" `
-      #         /d:sonar.host.url="https://sonarcloud.io" `
-      #         /d:sonar.cs.opencover.reportsPaths="**/TestResults/**/coverage.opencover.xml" `
-      #         /d:sonar.cs.vstest.reportsPaths="**/TestResults/**.trx" `
-      #         /d:sonar.exclusions="**/*.yml,**/*.xml"
-      #       dotnet build "${{ steps.findSlnFile.outputs.solutionFilePath }}" -p:DefineConstants="DCFv1%3BDBInfo%3BALARM_SQUASHING" --configuration Release -nodeReuse:false
-      #       dotnet sonarscanner end /d:sonar.token="${{ env.SONAR_TOKEN  }}"
-      #   continue-on-error: true
+
+      - name: Trigger Initial Analysis
+        if: fromJson(steps.get-sonarcloud-status.outputs.sonarCloudProjectStatus).projectStatus.status  == 'NONE'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
+        run: |
+            dotnet sonarscanner begin `
+              /k:"${{ inputs.sonarCloudProjectName }}" `
+              /o:"${{ env.lowerCaseOwner }}" `
+              /d:sonar.token="${{ env.SONAR_TOKEN }}" `
+              /d:sonar.host.url="https://sonarcloud.io" `
+              /d:sonar.cs.opencover.reportsPaths="**/TestResults/**/coverage.opencover.xml" `
+              /d:sonar.cs.vstest.reportsPaths="**/TestResults/**.trx" `
+              /d:sonar.exclusions="**/*.yml,**/*.xml"
+            dotnet build "${{ steps.findSlnFile.outputs.solutionFilePath }}" -p:DefineConstants="DCFv1%3BDBInfo%3BALARM_SQUASHING" --configuration Release -nodeReuse:false
+            dotnet sonarscanner end /d:sonar.token="${{ env.SONAR_TOKEN  }}"
+        continue-on-error: true
 
       - name: Start Analysis
         env:
@@ -298,6 +228,37 @@ jobs:
             --perform-restore false
         continue-on-error: true
 
+      - name: Run Major Change Checker
+        id: major-change-checker
+        run: |
+          # Check if we have catalog API key for MCC
+          if [ -n "${{ secrets.api-key }}" ]; then
+            echo "Running Major Change Checker with Catalog API..."
+            
+            # Build the base command
+            command="dataminer-validator major-change-checker \
+              --mcc-solution-path \"${{ github.workspace }}\" \
+              --mcc-output-directory \"${{ github.workspace }}\" \
+              --output-file-name \"mccResults\" \
+              --catalog-api-key \"${{ secrets.api-key }}\""
+            
+            # Add catalog ID if available (optional)
+            if [ -n "${{ vars.catalogIdentifier }}" ]; then
+              command="$command --catalog-id \"${{ vars.catalogIdentifier }}\""
+              echo "Using catalog identifier: ${{ vars.catalogIdentifier }}"
+            else
+              echo "No catalog identifier provided - MCC will search public catalog"
+            fi
+            
+            # Execute the command
+            eval $command
+          else
+            echo "Skipping Major Change Checker - catalog API key not available"
+            echo "To enable Major Change Checker, set the api-key secret"
+          fi
+        continue-on-error: true
+        shell: bash
+
       - name: Archive Results
         uses: actions/upload-artifact@v4
         with:
@@ -305,6 +266,8 @@ jobs:
           path: |
             ${{ github.workspace }}/validateResults.json
             ${{ github.workspace }}/validateResults.html
+            ${{ github.workspace }}/mccResults.json
+            ${{ github.workspace }}/mccResults.html
         continue-on-error: true
 
       - name: Validator Quality Gate
@@ -321,114 +284,29 @@ jobs:
         continue-on-error: true
         shell: bash
 
-      - name: Create output directory
-        run: mkdir -p ${{ inputs.output-directory }}
-
-      # - name: Determine command parameters
-      #   id: params
-      #   run: |
-      #     # Use the found solution file path
-      #     SOLUTION_PATH="${{ steps.find-sln-file.outputs.solutionFilePath }}"
-    
-      #     CMD="dataminer-validator major-change-checker --mcc-solution-path \"${SOLUTION_PATH}\" --mcc-output-directory \"${{ inputs.output-directory }}\""
-    
-      #     if [ -n "${{ inputs.output-file-name }}" ]; then
-      #     CMD="$CMD --output-file-name \"${{ inputs.output-file-name }}\""
-      #     fi
-
-      #     if [ -n "${{ inputs.output-format }}" ]; then
-      #     IFS=',' read -ra FORMAT_ARRAY <<< "$(echo "${{ inputs.output-format }}" | tr -d ' ')"
-      #     for format in "${FORMAT_ARRAY[@]}"; do
-      #     CMD="$CMD --output-format $format"
-      #     done
-      #     fi
-
-      #     if [ "${{ inputs.include-suppressed }}" = "true" ]; then
-      #     CMD="$CMD --include-suppressed"
-      #     fi
-
-      #     if [ "${{ inputs.use-catalog }}" = "true" ]; then
-      #     if [ -n "${{ inputs.catalog-id }}" ]; then
-      #     CMD="$CMD --catalog-id \"${{ inputs.catalog-id }}\""
-      #     fi
-      #     if [ -n "${{ secrets.catalog-api-key }}" ]; then
-      #     CMD="$CMD --catalog-api-key \"${{ secrets.catalog-api-key }}\""
-      #     fi
-      #     fi
-          
-      #     echo "command=$CMD" >> $GITHUB_OUTPUT
-      #     echo "Full command to execute: $CMD"
-
-      # - name: Run Major Change Checker
-      #   run: ${{ steps.params.outputs.command }}
-      #   continue-on-error: true
-      
-      - name: Run Major Change Checker
+      - name: Major Change Checker Quality Gate
+        id: mcc-quality-gate
+        if: steps.major-change-checker.outcome == 'success'
         run: |
-          dataminer-validator major-change-checker `
-            --mcc-solution-path "${{ github.workspace }}" `
-            --mcc-output-directory "${{ github.workspace }}" `
-            --output-file-name "mccResults" `
-            --catalog-id "${{ inputs.catalog-id }}" `
-            --catalog-api-key "${{ secrets.catalog-api-key }}"
-        continue-on-error: true
+          if [ -f "${{ github.workspace }}/mccResults.json" ]; then
+            json=$(cat "${{ github.workspace }}/mccResults.json")
+            critical=$(echo "$json" | jq -r '.CriticalIssueCount')
+            major=$(echo "$json" | jq -r '.MajorIssueCount')
 
-      - name: Run Major Change Checker (Robust)
-        run: |
-          $solutionPath = "${{ github.workspace }}"
-          $catalogId = "${{ inputs.catalog-id }}"
-          $apiKey = "${{ secrets.catalog-api-key }}"
-          
-          # Check if protocol.xml exists
-          if (Test-Path "$solutionPath\protocol.xml") {
-            Write-Host "protocol.xml found at: $solutionPath\protocol.xml"
-          } else {
-            # Search for protocol.xml
-            $protocolFile = Get-ChildItem -Path $solutionPath -Filter "protocol.xml" -Recurse | Select-Object -First 1
-            if ($protocolFile) {
-              $solutionPath = $protocolFile.DirectoryName
-              Write-Host "protocol.xml found at: $protocolFile"
-            } else {
-              Write-Host "ERROR: protocol.xml not found anywhere!"
-              Get-ChildItem -Path $solutionPath -Recurse | Where-Object { $_.Name -like "*protocol*" } | ForEach-Object { Write-Host "Found: $($_.FullName)" }
+            if [ "$critical" != 0 ] || [ "$major" != 0 ]; then
+              echo "Error: Major Change Checker found critical or major changes"
               exit 1
-            }
-          }
-          
-          dataminer-validator major-change-checker `
-            --mcc-solution-path "$solutionPath" `
-            --mcc-output-directory "${{ github.workspace }}" `
-            --output-file-name "mccResults" `
-            --catalog-id "$catalogId" `
-            --catalog-api-key "$apiKey"
-        continue-on-error: true
-        shell: pwsh  # This was missing the 'shell' key
-        
-      - name: Upload results as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: major-change-checker-results
-          path: ${{ inputs.output-directory }}/*
-          retention-days: 30
-        continue-on-error: true
-        
-      - name: Check for critical issues
-        run: |
-          if ls ${{ inputs.output-directory }}/*.json 1> /dev/null 2>&1; then
-            CRITICAL_COUNT=$(jq '.CriticalIssueCount' ${{ inputs.output-directory }}/*.json)
-            if [ "$CRITICAL_COUNT" -gt 0 ]; then
-              echo "Found $CRITICAL_COUNT critical issues"
-              exit 1
-            else
-              echo "No critical issues found"
             fi
           else
-            echo "No results file found"
+            echo "No MCC results file found, skipping MCC quality gate"
           fi
+        continue-on-error: true
+        shell: bash
+
       - name: Quality Gate
         id: quality-step
         run: |
-          if "${{ steps.validator-quality-gate.outcome }}" == "failure" or "${{ steps.unit-tests.outcome }}" == "failure" or "${{ steps.sonarcloud-quality-gate-check.outcome }}" == "failure" or "${{ steps.sonarcloud-quality-gate-check.outputs.quality-gate-status }}" == "FAILED":
+          if "${{ steps.validator-quality-gate.outcome }}" == "failure" or "${{ steps.unit-tests.outcome }}" == "failure" or "${{ steps.sonarcloud-quality-gate-check.outcome }}" == "failure" or "${{ steps.sonarcloud-quality-gate-check.outputs.quality-gate-status }}" == "FAILED" or "${{ steps.mcc-quality-gate.outcome }}" == "failure":
             print("Quality gate failed due to:")
           if "${{ steps.unit-tests.outcome }}" == "failure":
             print("- Test failures")
@@ -438,10 +316,11 @@ jobs:
             print("- Could not retrieve SonarCloud quality gate status")
           if "${{ steps.sonarcloud-quality-gate-check.outputs.quality-gate-status }}" == "FAILED":
             print("- Code analysis quality gate failed")
-          if "${{ steps.validator-quality-gate.outcome }}" == "failure" or "${{ steps.unit-tests.outcome }}" == "failure" or "${{ steps.sonarcloud-quality-gate-check.outcome }}" == "failure" or "${{ steps.sonarcloud-quality-gate-check.outputs.quality-gate-status }}" == "FAILED":
+          if "${{ steps.mcc-quality-gate.outcome }}" == "failure":
+            print("- Major change checker found breaking changes")
+          if "${{ steps.validator-quality-gate.outcome }}" == "failure" or "${{ steps.unit-tests.outcome }}" == "failure" or "${{ steps.sonarcloud-quality-gate-check.outcome }}" == "failure" or "${{ steps.sonarcloud-quality-gate-check.outputs.quality-gate-status }}" == "FAILED" or "${{ steps.mcc-quality-gate.outcome }}" == "failure":
             exit(1)
         shell: python
-        continue-on-error: true
         
       - name: Create package name
         if: github.ref_type == 'tag'

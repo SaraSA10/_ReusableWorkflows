@@ -156,7 +156,24 @@ jobs:
         run: |
           echo solutionFilePath=$(find . -type f -name '*.sln') >> $GITHUB_OUTPUT
         shell: bash
-
+      - name: Find Protocol.xml
+        id: find-protocol
+        run: |
+          # Search for protocol.xml recursively
+          $protocolFile = Get-ChildItem -Path "${{ github.workspace }}" -Filter "protocol.xml" -Recurse | Select-Object -First 1
+          if ($protocolFile) {
+          $protocolDir = $protocolFile.DirectoryName
+          $protocolPath = $protocolFile.FullName
+          echo "protocolDir=$protocolDir" >> $env:GITHUB_OUTPUT
+          echo "protocolPath=$protocolPath" >> $env:GITHUB_OUTPUT
+          echo "Found protocol.xml at: $protocolPath"
+          } else {
+          Write-Host "ERROR: protocol.xml not found!"
+          Get-ChildItem -Path "${{ github.workspace }}" -Recurse | Where-Object { $_.Name -like "*protocol*" } | ForEach-Object { Write-Host "Found: $($_.FullName)" }
+          exit 1
+          }
+          shell: pwsh
+          
       - name: Install .NET Tools
         run: |
           dotnet tool install -g dotnet-sonarscanner
@@ -349,7 +366,7 @@ jobs:
       - name: Run Major Change Checker
         run: |
           dataminer-validator major-change-checker `
-          --mcc-solution-path "${{ github.workspace }}" `
+          --mcc-solution-path "${{ steps.find-protocol.outputs.protocolDir }}" `
           --mcc-output-directory "${{ github.workspace }}" `
           --output-file-name "mccResults" `
           --catalog-id "${{ inputs.catalog-id }}" `

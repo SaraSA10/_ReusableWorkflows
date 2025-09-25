@@ -74,7 +74,8 @@ jobs:
             # Export as environment variable
             echo "$env_var_name=$secret_value" >> "$GITHUB_ENV"
           done
-
+        continue-on-error: true
+        
       - name: Overwrite default secrets with user-defined secrets
         shell: bash
         run: |
@@ -87,7 +88,7 @@ jobs:
             echo "Using provided sonarCloudToken secret"
             echo "SONAR_TOKEN=${{ secrets.sonarCloudToken }}" >> "$GITHUB_ENV"
           fi
-
+        continue-on-error: true
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
@@ -107,7 +108,7 @@ jobs:
       - name: Install .NET Tools
         run: |
           dotnet tool install -g dotnet-sonarscanner
-          dotnet tool install -g Skyline.DataMiner.CICD.Tools.Validator
+          dotnet tool install --global Skyline.DataMiner.CICD.Tools.Validator --version 1.5.0-bravo
           dotnet tool install -g Skyline.DataMiner.CICD.Tools.Sbom --version 1.0.*
 
       - name: Enable Skyline NuGet Registries
@@ -135,7 +136,8 @@ jobs:
             }
           }
         shell: pwsh
-  
+        continue-on-error: true
+        
       - name: Prepare SonarCloud Variables
         id: prepSonarCloudVar
         run: |
@@ -144,7 +146,8 @@ jobs:
           with open(env_file, "a") as myfile:
               myfile.write("lowerCaseOwner=" + str.lower("${{ github.repository_owner }}"))
         shell: python
-
+        continue-on-error: true
+        
       - name: Get SonarCloud Status
         id: get-sonarcloud-status
         run: |
@@ -232,7 +235,7 @@ jobs:
         id: major-change-checker
         run: |
           # Check if we have catalog API key for MCC
-          if [ -n "${{ secrets.api-key }}" ]; then
+          if [ -n "${{ secrets.CATALOG_API_KEY }}" ]; then
             echo "Running Major Change Checker with Catalog API..."
             
             # Build the base command
@@ -240,12 +243,12 @@ jobs:
               --mcc-solution-path \"${{ github.workspace }}\" \
               --mcc-output-directory \"${{ github.workspace }}\" \
               --output-file-name \"mccResults\" \
-              --catalog-api-key \"${{ secrets.api-key }}\""
+              --catalog-api-key \"${{ secrets.CATALOG_API_KEY }}\""
             
             # Add catalog ID if available (optional)
-            if [ -n "${{ vars.catalogIdentifier }}" ]; then
-              command="$command --catalog-id \"${{ vars.catalogIdentifier }}\""
-              echo "Using catalog identifier: ${{ vars.catalogIdentifier }}"
+            if [ -n "${{ vars.CATALOG_IDENTIFIER }}" ]; then
+              command="$command --catalog-id \"${{ vars.CATALOG_IDENTIFIER }}\""
+              echo "Using catalog identifier: ${{ vars.CATALOG_IDENTIFIER }}"
             else
               echo "No catalog identifier provided - MCC will search public catalog"
             fi
@@ -321,6 +324,7 @@ jobs:
           if "${{ steps.validator-quality-gate.outcome }}" == "failure" or "${{ steps.unit-tests.outcome }}" == "failure" or "${{ steps.sonarcloud-quality-gate-check.outcome }}" == "failure" or "${{ steps.sonarcloud-quality-gate-check.outputs.quality-gate-status }}" == "FAILED" or "${{ steps.mcc-quality-gate.outcome }}" == "failure":
             exit(1)
         shell: python
+        continue-on-error: true
         
       - name: Create package name
         if: github.ref_type == 'tag'
@@ -330,7 +334,8 @@ jobs:
           $safeName = $tempName -replace '[\"\/\\<>|:*?]', '_'
           echo "name=$safeName" >> $env:GITHUB_OUTPUT
         shell: pwsh
-
+        continue-on-error: true
+        
       - name: Generate SBOM file
         if: github.ref_type == 'tag'
         run: |

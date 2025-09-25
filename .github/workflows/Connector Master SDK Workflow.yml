@@ -26,12 +26,12 @@ on:
         required: false
         type: string
 
-      solution-path:
+      mcc-solution-path:
         description: 'Path to the solution file (.sln)'
         required: true
         type: string
 
-      output-directory:
+      mcc-output-directory:
         required: true
         type: string
 
@@ -43,7 +43,7 @@ on:
         type: boolean
 
     secrets:
-      api-key:
+      catalog-api-key:
         required: true
       sonarCloudToken:
         required: false
@@ -238,6 +238,8 @@ jobs:
         run: |
           echo "Catalog API Key length: ${#CATALOG_API_KEY}"
           echo "Catalog API Key present: ${{ secrets.CATALOG_API_KEY != '' }}"
+          echo "Catalog API Key length: ${API_KEY}"
+          echo "Catalog API Key present: ${{ secrets.API_KEY != '' }}"
         shell: bash
 
 

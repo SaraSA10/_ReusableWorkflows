@@ -546,7 +546,7 @@ jobs:
           SOLUTION_PATH="${{ steps.find-sln-file.outputs.solutionFilePath }}"
           
           # Start building the command
-          CMD="dataminer-validator major-change-checker --mcc-solution-path \"$SOLUTION_PATH\" --mcc-output-directory \"${{ inputs.output-directory }}\""
+          CMD="dataminer-validator major-change-checker --mcc-solution-path \"${{ steps.find-sln-file.outputs.solutionFilePath }}\" --mcc-output-directory \"${{ inputs.output-directory }}\""
           
           # Add optional parameters
           if [ -n "${{ inputs.output-file-name }}" ]; then

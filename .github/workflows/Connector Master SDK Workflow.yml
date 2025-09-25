@@ -544,43 +544,33 @@ jobs:
         run: |
           # Use the found solution file path
           SOLUTION_PATH="${{ steps.find-sln-file.outputs.solutionFilePath }}"
-          
-          # Start building the command
-          CMD="dataminer-validator major-change-checker --mcc-solution-path \"${{ steps.find-sln-file.outputs.solutionFilePath }}\" --mcc-output-directory \"${{ inputs.output-directory }}\""
-          
-          # Add optional parameters
+    
+          CMD="dataminer-validator major-change-checker --mcc-solution-path \"${SOLUTION_PATH}\" --mcc-output-directory \"${{ inputs.output-directory }}\""
+    
           if [ -n "${{ inputs.output-file-name }}" ]; then
-            CMD="$CMD --output-file-name \"${{ inputs.output-file-name }}\""
+          CMD="$CMD --output-file-name \"${{ inputs.output-file-name }}\""
           fi
 
-          # Handle output formats
           if [ -n "${{ inputs.output-format }}" ]; then
-            IFS=',' read -ra FORMAT_ARRAY <<< "$(echo "${{ inputs.output-format }}" | tr -d ' ')"
-            for format in "${FORMAT_ARRAY[@]}"; do
-              CMD="$CMD --output-format $format"
-            done
+          IFS=',' read -ra FORMAT_ARRAY <<< "$(echo "${{ inputs.output-format }}" | tr -d ' ')"
+          for format in "${FORMAT_ARRAY[@]}"; do
+          CMD="$CMD --output-format $format"
+          done
           fi
 
           if [ "${{ inputs.include-suppressed }}" = "true" ]; then
-            CMD="$CMD --include-suppressed"
+          CMD="$CMD --include-suppressed"
           fi
 
-          # Determine which approach to use (catalog or old protocol path)
-          if [ "${{ inputs.use-catalog }}" = "true" ] && [ -n "${{ inputs.catalog-id }}" ]; then
-            CMD="$CMD --catalog-id \"${{ inputs.catalog-id }}\""
-            if [ -n "${{ secrets.catalog-api-key }}" ]; then
-              CMD="$CMD --catalog-api-key \"${{ secrets.catalog-api-key }}\""
-            fi
-          elif [ -n "${{ inputs.old-protocol-path }}" ]; then
-            CMD="$CMD --mcc-old-protocol-path \"${{ inputs.old-protocol-path }}\""
-          else
-            echo "Error: Either catalog-id or old-protocol-path must be provided"
-            echo "Use catalog approach: ${{ inputs.use-catalog }}"
-            echo "Catalog ID provided: ${{ inputs.catalog-id }}"
-            echo "Old protocol path provided: ${{ inputs.old-protocol-path }}"
-            exit 1
+          if [ "${{ inputs.use-catalog }}" = "true" ]; then
+          if [ -n "${{ inputs.catalog-id }}" ]; then
+          CMD="$CMD --catalog-id \"${{ inputs.catalog-id }}\""
           fi
-
+          if [ -n "${{ secrets.catalog-api-key }}" ]; then
+          CMD="$CMD --catalog-api-key \"${{ secrets.catalog-api-key }}\""
+          fi
+          fi
+          
           echo "command=$CMD" >> $GITHUB_OUTPUT
           echo "Full command to execute: $CMD"
 

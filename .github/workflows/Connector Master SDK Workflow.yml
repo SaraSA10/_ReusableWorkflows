@@ -269,7 +269,7 @@ jobs:
               --output-file-name "mccResults" `
               --catalog-id "${{ vars.catalogIdentifier }}" `
               --catalog-api-key "${{ env.DATAMINER_TOKEN }}" `
-              --debug "${{ inputs.debug }}"
+              
               
           } else {
             Write-Host " ERROR: protocol.xml not found anywhere in the repository"

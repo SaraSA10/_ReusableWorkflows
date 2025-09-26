@@ -75,7 +75,7 @@ jobs:
           dotnet-version: '8.0.x'
 
       - name: Install Validator Tool
-        run: dotnet tool install --global Skyline.DataMiner.CICD.Tools.Validator --version 1.5.0-alpha
+        run: dotnet tool install --global Skyline.DataMiner.CICD.Tools.Validator --version 1.5.0-bravo
 
       # - name: Find .sln file
       #   id: find-sln-file
@@ -159,8 +159,8 @@ jobs:
           fi
 
           # Determine which approach to use (catalog or old protocol path)
-          if [ "${{ inputs.use-catalog }}" = "true" ] && [ -n "${{ inputs.catalog-id }}" ]; then
-            CMD="$CMD --catalog-id \"${{ inputs.catalog-id }}\""
+          if [ "${{ inputs.use-catalog }}" = "true" ] && [ -n "${{ vars.CATALOG_IDENTIFIER }}" ]; then
+            CMD="$CMD --catalog-id \"${{ vars.CATALOG_IDENTIFIER }}\""
             if [ -n "${{ secrets.catalog-api-key }}" ]; then
               CMD="$CMD --catalog-api-key \"${{ secrets.catalog-api-key }}\""
             fi

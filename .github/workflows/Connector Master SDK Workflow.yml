@@ -21,7 +21,12 @@ on:
       use-oidc:
         required: false
         type: string
-
+      mcc-solution-path:
+        required: true
+        type: string
+      mcc-output-directory:
+        required: true
+        type: string
       sonarCloudProjectName:
         required: true
         type: string

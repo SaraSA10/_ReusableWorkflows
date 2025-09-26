@@ -21,7 +21,12 @@ on:
       use-oidc:
         required: false
         type: string
-
+      mcc-soulution-path:
+        required: true
+        type: string
+      catalog-id:
+        required: false
+        type: string
       sonarCloudProjectName:
         required: true
         type: string

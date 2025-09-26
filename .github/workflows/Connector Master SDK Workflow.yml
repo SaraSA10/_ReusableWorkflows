@@ -262,9 +262,18 @@ jobs:
             $protocolDir = Split-Path -Path $protocolPath -Parent
             $solutionDir = "${{ github.workspace }}"
             
-            # Copy protocol.xml to the solution root as a temporary workaround
-            Copy-Item -Path $protocolPath -Destination "$solutionDir\protocol.xml" -Force
-            Write-Host "Copied protocol.xml to solution root for MCC compatibility"
+            # Check if protocol.xml is already in the solution root
+            $expectedRootPath = Join-Path $solutionDir "protocol.xml"
+            
+            if ($protocolPath -ne $expectedRootPath) {
+              # Only copy if it's not already in the root
+              Write-Host "Copying protocol.xml to solution root for MCC compatibility"
+              Copy-Item -Path $protocolPath -Destination $expectedRootPath -Force
+              $copiedFile = $true
+            } else {
+              Write-Host "protocol.xml is already in the solution root"
+              $copiedFile = $false
+            }
             
             # Run MCC
             dataminer-validator major-change-checker `
@@ -275,8 +284,11 @@ jobs:
               --catalog-api-key "${{ env.DATAMINER_TOKEN }}" `
               --debug "${{ inputs.debug }}"
               
-            # Clean up the temporary copy
-            Remove-Item -Path "$solutionDir\protocol.xml" -Force -ErrorAction SilentlyContinue
+            # Clean up the temporary copy only if we created one
+            if ($copiedFile -and (Test-Path $expectedRootPath)) {
+              Remove-Item -Path $expectedRootPath -Force -ErrorAction SilentlyContinue
+              Write-Host "Cleaned up temporary protocol.xml copy"
+            }
             
           } else {
             Write-Host " ERROR: protocol.xml not found anywhere in the repository"

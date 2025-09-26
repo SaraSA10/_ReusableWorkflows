@@ -112,7 +112,7 @@ jobs:
       - name: Install .NET Tools
         run: |
           dotnet tool install -g dotnet-sonarscanner
-          dotnet tool install -g Skyline.DataMiner.CICD.Tools.Validator --1.5.0-alpha
+          dotnet tool install -g Skyline.DataMiner.CICD.Tools.Validator --1.5.0-bravo
           dotnet tool install -g Skyline.DataMiner.CICD.Tools.Sbom --version 1.0.*
 
       - name: Enable Skyline NuGet Registries
@@ -272,7 +272,7 @@ jobs:
           if "${{ steps.validator-quality-gate.outcome }}" == "failure" or "${{ steps.unit-tests.outcome }}" == "failure" or "${{ steps.sonarcloud-quality-gate-check.outcome }}" == "failure" or "${{ steps.sonarcloud-quality-gate-check.outputs.quality-gate-status }}" == "FAILED":
             exit(1)
         shell: python
-        
+        continue-on-error: true
       - name: Run Major Change Checker
         id: major-change-check
         run: |

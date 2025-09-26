@@ -21,12 +21,7 @@ on:
       use-oidc:
         required: false
         type: string
-      mcc-soulution-path:
-        required: true
-        type: string
-      catalog-id:
-        required: false
-        type: string
+
       sonarCloudProjectName:
         required: true
         type: string
@@ -107,7 +102,7 @@ jobs:
         with:
           java-version: 17
           distribution: 'zulu'
- 
+
       - name: Find .sln file
         id: findSlnFile
         run: |
@@ -145,7 +140,7 @@ jobs:
             }
           }
         shell: pwsh
-  
+
       - name: Prepare SonarCloud Variables
         id: prepSonarCloudVar
         run: |
@@ -212,7 +207,7 @@ jobs:
         id: unit-tests
         run: dotnet test "${{ steps.findSlnFile.outputs.solutionFilePath }}" --filter TestCategory!=IntegrationTest --logger "trx;logfilename=unitTestResults.trx" --collect "XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura,opencover
         continue-on-error: true
-  
+
       - name: Stop Analysis
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
@@ -260,7 +255,7 @@ jobs:
           fi
         continue-on-error: true
         shell: bash
-        
+
       - name: Quality Gate
         id: quality-step
         run: |
@@ -278,7 +273,7 @@ jobs:
             exit(1)
         shell: python
         continue-on-error: true
-        
+
       - name: Run Major Change Checker
         id: major-change-check
         run: |
@@ -300,6 +295,7 @@ jobs:
               --output-file-name "mccResults" `
               --catalog-id "${{ vars.catalogIdentifier }}" `
               --catalog-api-key "${{ env.DATAMINER_TOKEN }}" `
+              --debug "${{ inputs.debug }}"
               
           } else {
             Write-Host " ERROR: protocol.xml not found anywhere in the repository"

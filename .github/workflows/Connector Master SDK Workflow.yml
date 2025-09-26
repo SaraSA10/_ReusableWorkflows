@@ -273,7 +273,7 @@ jobs:
             }
             
             # Run MCC with proper API key handling
-            $apiKey = "${{ secrets.catalog-api-key }}"
+            $apiKey = "${{ secrets.CATALOG_API_KEY }}"
             if ([string]::IsNullOrEmpty($apiKey)) {
               Write-Host "Warning: API key is empty. MCC will try public catalog only."
             }

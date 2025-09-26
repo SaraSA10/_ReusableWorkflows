@@ -22,19 +22,6 @@ on:
         required: false
         type: string
 
-      catalog-id:
-        required: false
-        type: string
-
-      mcc-solution-path:
-        description: 'Path to the solution file (.sln)'
-        required: true
-        type: string
-
-      mcc-output-directory:
-        required: true
-        type: string
-
       sonarCloudProjectName:
         required: true
         type: string
@@ -43,8 +30,8 @@ on:
         type: boolean
 
     secrets:
-      catalog-api-key:
-        required: true
+      api-key:
+        required: false
       sonarCloudToken:
         required: false
       azureToken:
@@ -87,7 +74,6 @@ jobs:
             # Export as environment variable
             echo "$env_var_name=$secret_value" >> "$GITHUB_ENV"
           done
-        continue-on-error: true
 
       - name: Overwrite default secrets with user-defined secrets
         shell: bash
@@ -101,7 +87,12 @@ jobs:
             echo "Using provided sonarCloudToken secret"
             echo "SONAR_TOKEN=${{ secrets.sonarCloudToken }}" >> "$GITHUB_ENV"
           fi
-        continue-on-error: true
+          if [[ -n "${{ secrets.api-key }}" ]]; then
+            echo "Using provided apikey secret"
+            echo "DATAMINER_TOKEN=${{ secrets.api-key }}" >> "$GITHUB_ENV"
+          fi
+
+
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
@@ -111,7 +102,7 @@ jobs:
         with:
           java-version: 17
           distribution: 'zulu'
-
+ 
       - name: Find .sln file
         id: findSlnFile
         run: |
@@ -121,7 +112,7 @@ jobs:
       - name: Install .NET Tools
         run: |
           dotnet tool install -g dotnet-sonarscanner
-          dotnet tool install --global Skyline.DataMiner.CICD.Tools.Validator --version 1.5.0-alpha
+          dotnet tool install -g Skyline.DataMiner.CICD.Tools.Validator --1.5.0-alpha
           dotnet tool install -g Skyline.DataMiner.CICD.Tools.Sbom --version 1.0.*
 
       - name: Enable Skyline NuGet Registries
@@ -149,8 +140,7 @@ jobs:
             }
           }
         shell: pwsh
-        continue-on-error: true
-
+  
       - name: Prepare SonarCloud Variables
         id: prepSonarCloudVar
         run: |
@@ -160,7 +150,6 @@ jobs:
               myfile.write("lowerCaseOwner=" + str.lower("${{ github.repository_owner }}"))
         shell: python
         continue-on-error: true
-
       # - name: Get SonarCloud Status
       #   id: get-sonarcloud-status
       #   run: |
@@ -176,7 +165,7 @@ jobs:
       #     # Output the JSON response if valid
       #     echo "Returned response: $sonarCloudProjectStatus"
       #     echo "sonarCloudProjectStatus=$sonarCloudProjectStatus" >> $GITHUB_OUTPUT
-      #   continue-on-error: false
+      #   continue-on-error: true
       #   shell: bash
 
       # - name: Trigger Initial Analysis
@@ -218,7 +207,7 @@ jobs:
         id: unit-tests
         run: dotnet test "${{ steps.findSlnFile.outputs.solutionFilePath }}" --filter TestCategory!=IntegrationTest --logger "trx;logfilename=unitTestResults.trx" --collect "XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura,opencover
         continue-on-error: true
-
+  
       - name: Stop Analysis
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
@@ -234,14 +223,6 @@ jobs:
         continue-on-error: true
         # Force to fail step after specific time.
         timeout-minutes: 5
-      - name: Debug environment
-        run: |
-          echo "Catalog API Key length: ${#CATALOG_API_KEY}"
-          echo "Catalog API Key present: ${{ secrets.CATALOG_API_KEY != '' }}"
-          echo "Catalog API Key length: ${API_KEY}"
-          echo "Catalog API Key present: ${{ secrets.API_KEY != '' }}"
-        shell: bash
-
 
       - name: Run Connector Validator
         run: |
@@ -252,94 +233,13 @@ jobs:
             --perform-restore false
         continue-on-error: true
 
-      # - name: Run Major Change Checker
-      #   id: major-change-checker
-      #   run: |
-      #     # Check if we have catalog API key for MCC
-      #     if [ -n "${{ secrets.CATALOG_API_KEY }}" ]; then
-      #       echo "Running Major Change Checker with Catalog API..."
-
-      #       # Build the base command
-      #       command="dataminer-validator major-change-checker \
-      #         --mcc-solution-path \"${{ github.workspace }}\" \
-      #         --mcc-output-directory \"${{ github.workspace }}\" \
-      #         --output-file-name \"mccResults\" \
-      #         --catalog-api-key \"${{ secrets.CATALOG_API_KEY }}\""
-
-      #       # Add catalog ID if available (optional)
-      #       if [ -n "${{ vars.CATALOG_IDENTIFIER }}" ]; then
-      #         command="$command --catalog-id \"${{ vars.CATALOG_IDENTIFIER }}\""
-      #         echo "Using catalog identifier: ${{ vars.CATALOG_IDENTIFIER }}"
-      #       else
-      #         echo "No catalog identifier provided - MCC will search public catalog"
-      #       fi
-
-      #       # Execute the command
-      #       eval $command
-      #     else
-      #       echo "Skipping Major Change Checker - catalog API key not available"
-      #       echo "To enable Major Change Checker, set the api-key secret"
-      #     fi
-      #   # continue-on-error: true
-      #   shell: bash
-
-      # - name: Run Major Change Checker
-      #   run: |
-      #     dataminer-validator major-change-checker `
-      #       --mcc-solution-path "${{ github.workspace }}" `
-      #       --mcc-output-directory "${{ github.workspace }}" `
-      #       --output-file-name "mccResults" `
-      #       --catalog-id "${{vars.CATALOG_IDENTIFIER}}"`
-      #       --catalog-api-key "${{secrets.CATALOG_API_KEY}}"
-      #   continue-on-error: true
-
-      - name: Run Major Change Checker
-        run: |
-          # First, find the protocol.xml file
-          $protocolPath = Get-ChildItem -Path "${{ github.workspace }}" -Recurse -Filter "protocol.xml" | Select-Object -First 1 -ExpandProperty FullName
-          
-          if (-not $protocolPath) {
-            Write-Host "protocol.xml not found. Searching for Protocol.xml..."
-            $protocolPath = Get-ChildItem -Path "${{ github.workspace }}" -Recurse -Filter "Protocol.xml" | Select-Object -First 1 -ExpandProperty FullName
-          }
-          
-          if ($protocolPath) {
-            Write-Host "Found protocol file at: $protocolPath"
-            $protocolDir = Split-Path -Path $protocolPath -Parent
-            
-            # Change to the directory containing protocol.xml
-            Set-Location -Path $protocolDir
-            
-            dataminer-validator major-change-checker `
-              --mcc-solution-path "." `
-              --mcc-output-directory "${{ github.workspace }}" `
-              --output-file-name "mccResults" `
-              --catalog-id "${{vars.CATALOG_IDENTIFIER}}" `
-              --catalog-api-key "${{secrets.CATALOG_API_KEY}}"
-          } else {
-            Write-Host "No protocol.xml file found. Skipping MCC."
-            # Create empty result file to prevent failures
-            echo '{"CriticalIssueCount":0,"MajorIssueCount":0}' > "${{ github.workspace }}/mccResults.json"
-          }
-        continue-on-error: true
-        shell: pwsh
-
-      - name: Archive Results Validator
+      - name: Archive Results
         uses: actions/upload-artifact@v4
         with:
           name: validateResults
           path: |
             ${{ github.workspace }}/validateResults.json
             ${{ github.workspace }}/validateResults.html
-        continue-on-error: true
-
-      - name: Archive Results MCC
-        uses: actions/upload-artifact@v4
-        with:
-          name: MajorChangeCheckerResults
-          path: |
-            ${{ github.workspace }}/mccResults.json
-            ${{ github.workspace }}/mccResults.html
         continue-on-error: true
 
       - name: Validator Quality Gate
@@ -355,30 +255,11 @@ jobs:
           fi
         continue-on-error: true
         shell: bash
-
-      - name: Major Change Checker Quality Gate
-        id: mcc-quality-gate
-        if: steps.major-change-checker.outcome == 'success'
-        run: |
-          if [ -f "${{ github.workspace }}/mccResults.json" ]; then
-            json=$(cat "${{ github.workspace }}/mccResults.json")
-            critical=$(echo "$json" | jq -r '.CriticalIssueCount')
-            major=$(echo "$json" | jq -r '.MajorIssueCount')
-
-            if [ "$critical" != 0 ] || [ "$major" != 0 ]; then
-              echo "Error: Major Change Checker found critical or major changes"
-              exit 1
-            fi
-          else
-            echo "No MCC results file found, skipping MCC quality gate"
-          fi
-        continue-on-error: true
-        shell: bash
-
+        
       - name: Quality Gate
         id: quality-step
         run: |
-          if "${{ steps.validator-quality-gate.outcome }}" == "failure" or "${{ steps.unit-tests.outcome }}" == "failure" or "${{ steps.sonarcloud-quality-gate-check.outcome }}" == "failure" or "${{ steps.sonarcloud-quality-gate-check.outputs.quality-gate-status }}" == "FAILED" or "${{ steps.mcc-quality-gate.outcome }}" == "failure":
+          if "${{ steps.validator-quality-gate.outcome }}" == "failure" or "${{ steps.unit-tests.outcome }}" == "failure" or "${{ steps.sonarcloud-quality-gate-check.outcome }}" == "failure" or "${{ steps.sonarcloud-quality-gate-check.outputs.quality-gate-status }}" == "FAILED":
             print("Quality gate failed due to:")
           if "${{ steps.unit-tests.outcome }}" == "failure":
             print("- Test failures")
@@ -388,13 +269,53 @@ jobs:
             print("- Could not retrieve SonarCloud quality gate status")
           if "${{ steps.sonarcloud-quality-gate-check.outputs.quality-gate-status }}" == "FAILED":
             print("- Code analysis quality gate failed")
-          if "${{ steps.mcc-quality-gate.outcome }}" == "failure":
-            print("- Major change checker found breaking changes")
-          if "${{ steps.validator-quality-gate.outcome }}" == "failure" or "${{ steps.unit-tests.outcome }}" == "failure" or "${{ steps.sonarcloud-quality-gate-check.outcome }}" == "failure" or "${{ steps.sonarcloud-quality-gate-check.outputs.quality-gate-status }}" == "FAILED" or "${{ steps.mcc-quality-gate.outcome }}" == "failure":
+          if "${{ steps.validator-quality-gate.outcome }}" == "failure" or "${{ steps.unit-tests.outcome }}" == "failure" or "${{ steps.sonarcloud-quality-gate-check.outcome }}" == "failure" or "${{ steps.sonarcloud-quality-gate-check.outputs.quality-gate-status }}" == "FAILED":
             exit(1)
         shell: python
+        
+      - name: Run Major Change Checker
+        id: major-change-check
+        run: |
+          dataminer-validator major-change-checker \
+            --mcc-solution-path "${{ github.workspace }}" \
+            --mcc-output-directory "${{ github.workspace }}" \
+            --output-file-name "mccResults" \
+            --catalog-id "${{ vars.catalogIdentifier }}" \
+            --catalog-api-key "${{ env.DATAMINER_TOKEN }}" \
+            --debug "${{ inputs.debug }}"
         continue-on-error: true
 
+      - name: Archive Major Change Check Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: Major Change Check Results
+          path: |
+            ${{ github.workspace }}/mccResults.json
+            ${{ github.workspace }}/mccResults.html
+        continue-on-error: true
+
+      - name: Check Major Change Results
+        id: check-major-changes
+        run: |
+          if [ -f "${{ github.workspace }}/mccResults.json" ]; then
+            json=$(cat "${{ github.workspace }}/mccResults.json")
+            major_change_count=$(echo "$json" | jq -r '.Results | map(select(.IsMajor == true and .IsSuppressed == false)) | length')
+            
+            if [ "$major_change_count" -gt 0 ]; then
+              echo "Found $major_change_count major change(s) that require review:"
+              echo "$json" | jq -r '.Results[] | select(.IsMajor == true and .IsSuppressed == false) | "• \(.Description) (Line: \(.Line))"'
+              echo "::warning file=protocol.xml,title=Major Changes Detected::Found $major_change_count major change(s) that may require documentation or approval"
+              
+              # Optionally fail the workflow if major changes are not allowed
+              # exit 1
+            else
+              echo "No major changes detected or all major changes are suppressed."
+            fi
+          else
+            echo "Major change check results file not found. Skipping major change validation."
+          fi
+        continue-on-error: true
+        shell: bash
       - name: Create package name
         if: github.ref_type == 'tag'
         id: packageName
@@ -404,7 +325,6 @@ jobs:
           echo "name=$safeName" >> $env:GITHUB_OUTPUT
         shell: pwsh
         continue-on-error: true
-
       - name: Generate SBOM file
         if: github.ref_type == 'tag'
         run: |
@@ -415,14 +335,14 @@ jobs:
             --package-supplier "Skyline Communications" `
             --output "${{ github.workspace }}/SBOM" `
             --debug "${{ inputs.debug }}"
-
+        continue-on-error: true
       - name: Upload SBOM file
         if: github.ref_type == 'tag'
         uses: actions/upload-artifact@v4
         with:
           name: SBOM
           path: "${{ github.workspace }}/SBOM/*.json"
-
+        continue-on-error: true
   auto_generate_catalog_yaml:
     name: Auto-Generating Catalog from GitHub
     if: ${{ github.ref_type == 'branch' &&  github.event_name != 'pull_request' }}
@@ -599,7 +519,13 @@ jobs:
       - name: Install .NET Tools
         run: |
           dotnet tool install --global Skyline.DataMiner.CICD.Tools.Packager --version 2.0.*
-      
+
+      - name: Find .sln file
+        id: findSlnFile
+        run: |
+          echo solutionFilePath=$(find . -type f -name '*.sln') >> $GITHUB_OUTPUT
+        shell: bash
+
       - name: Enable Skyline NuGet Registries
         if: github.repository_owner == 'SkylineCommunications'
         run: |

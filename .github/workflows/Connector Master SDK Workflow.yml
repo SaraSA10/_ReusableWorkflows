@@ -264,7 +264,6 @@ jobs:
             $expectedRootPath = Join-Path $solutionDir "protocol.xml"
             
             if ($protocolPath -ne $expectedRootPath) {
-              # Only copy if it's not already in the root
               Write-Host "Copying protocol.xml to solution root for MCC compatibility"
               Copy-Item -Path $protocolPath -Destination $expectedRootPath -Force
               $copiedFile = $true
@@ -273,14 +272,18 @@ jobs:
               $copiedFile = $false
             }
             
-            # Run MCC
+            # Run MCC with proper API key handling
+            $apiKey = "${{ secrets.catalog-api-key }}"
+            if ([string]::IsNullOrEmpty($apiKey)) {
+              Write-Host "Warning: API key is empty. MCC will try public catalog only."
+            }
+            
             dataminer-validator major-change-checker `
               --mcc-solution-path "$solutionDir" `
               --mcc-output-directory "${{ github.workspace }}" `
               --output-file-name "mccResults" `
               --catalog-id "${{ vars.catalogIdentifier }}" `
-              --catalog-api-key "${{ secrets.DATAMINER_TOKEN }}" `
-              
+              --catalog-api-key "$apiKey"
               
             # Clean up the temporary copy only if we created one
             if ($copiedFile -and (Test-Path $expectedRootPath)) {

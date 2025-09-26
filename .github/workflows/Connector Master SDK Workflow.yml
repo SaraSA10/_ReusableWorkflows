@@ -248,7 +248,7 @@ jobs:
         shell: bash
         continue-on-error: true
 
-            - name: Run Major Change Checker
+      - name: Run Major Change Checker
         id: major-change-check
         run: |
           # Find the actual protocol.xml location

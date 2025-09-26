@@ -121,7 +121,7 @@ jobs:
       - name: Install .NET Tools
         run: |
           dotnet tool install -g dotnet-sonarscanner
-          dotnet tool install --global Skyline.DataMiner.CICD.Tools.Validator --version 1.5.0-bravo
+          dotnet tool install --global Skyline.DataMiner.CICD.Tools.Validator --version 1.5.0-alpha
           dotnet tool install -g Skyline.DataMiner.CICD.Tools.Sbom --version 1.0.*
 
       - name: Enable Skyline NuGet Registries

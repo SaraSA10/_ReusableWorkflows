@@ -260,17 +260,24 @@ jobs:
           if ($protocolPath) {
             Write-Host "Found protocol file at: $protocolPath"
             $protocolDir = Split-Path -Path $protocolPath -Parent
-            Write-Host "Protocol directory: $protocolDir"
+            $solutionDir = "${{ github.workspace }}"
             
-            # Run MCC from the protocol directory
+            # Copy protocol.xml to the solution root as a temporary workaround
+            Copy-Item -Path $protocolPath -Destination "$solutionDir\protocol.xml" -Force
+            Write-Host "Copied protocol.xml to solution root for MCC compatibility"
+            
+            # Run MCC
             dataminer-validator major-change-checker `
-              --mcc-solution-path "$protocolDir" `
+              --mcc-solution-path "$solutionDir" `
               --mcc-output-directory "${{ github.workspace }}" `
               --output-file-name "mccResults" `
               --catalog-id "${{ vars.catalogIdentifier }}" `
               --catalog-api-key "${{ env.DATAMINER_TOKEN }}" `
+              --debug "${{ inputs.debug }}"
               
-              
+            # Clean up the temporary copy
+            Remove-Item -Path "$solutionDir\protocol.xml" -Force -ErrorAction SilentlyContinue
+            
           } else {
             Write-Host " ERROR: protocol.xml not found anywhere in the repository"
             Write-Host "Searched in: ${{ github.workspace }}"

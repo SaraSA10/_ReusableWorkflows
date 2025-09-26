@@ -272,8 +272,9 @@ jobs:
               $copiedFile = $false
             }
             
-            # Run MCC with proper API key handling
-            $apiKey = "${{ secrets.CATALOG_API_KEY }}"
+            # Use the secret that was passed to the reusable workflow
+            $apiKey = "${{ secrets.catalog-api-key }}"
+            
             if ([string]::IsNullOrEmpty($apiKey)) {
               Write-Host "Warning: API key is empty. MCC will try public catalog only."
             }
@@ -283,22 +284,10 @@ jobs:
               --mcc-output-directory "${{ github.workspace }}" `
               --output-file-name "mccResults" `
               --catalog-id "${{ vars.catalogIdentifier }}" `
-              --catalog-api-key "${{ secrets.CATALOG_API_KEY }}"
-              
-            # Clean up the temporary copy only if we created one
-            if ($copiedFile -and (Test-Path $expectedRootPath)) {
-              Remove-Item -Path $expectedRootPath -Force -ErrorAction SilentlyContinue
-              Write-Host "Cleaned up temporary protocol.xml copy"
-            }
-            
-          } else {
-            Write-Host " ERROR: protocol.xml not found anywhere in the repository"
-            Write-Host "Searched in: ${{ github.workspace }}"
-            exit 1
-          }
-        continue-on-error: true
-        shell: pwsh
-          
+              --catalog-api-key "$apiKey"
+          continue-on-error: true
+          shell: pwsh
+                  
           
       
 

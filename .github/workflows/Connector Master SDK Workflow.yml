@@ -37,6 +37,8 @@ on:
     secrets:
       api-key:
         required: false
+      catalog-api-key:
+        required: true
       sonarCloudToken:
         required: false
       azureToken:

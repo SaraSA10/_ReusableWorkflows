@@ -281,7 +281,7 @@ jobs:
               --output-file-name "mccResults" `
               --catalog-id "${{ vars.catalogIdentifier }}" `
               --catalog-api-key "${{ env.DATAMINER_TOKEN }}" `
-              --debug "${{ inputs.debug }}"
+              
               
             # Clean up the temporary copy only if we created one
             if ($copiedFile -and (Test-Path $expectedRootPath)) {

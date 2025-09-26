@@ -247,55 +247,17 @@ jobs:
           fi
         shell: bash
         continue-on-error: true
-
-      - name: Run Major Change Checker
+      - name: Run MCC
         id: major-change-check
         run: |
-          # Find the actual protocol.xml location
-          $protocolPath = Get-ChildItem -Path "${{ github.workspace }}" -Recurse -Filter "protocol.xml" | Select-Object -First 1 -ExpandProperty FullName
-          if (-not $protocolPath) {
-            $protocolPath = Get-ChildItem -Path "${{ github.workspace }}" -Recurse -Filter "Protocol.xml" | Select-Object -First 1 -ExpandProperty FullName
-          }
+          dataminer-validator major-change-checker`
+          --mcc-solution-path ${{github.workspace}}`
+          --mcc-output-directory ${{github.workspace}}`
+          --catalog-id "${{ vars.catalogIdentifier }}" `
+          --catalog-api-key "${{ secrets.DATAMINER_TOKEN }}" `
           
-          if ($protocolPath) {
-            Write-Host "Found protocol file at: $protocolPath"
-            $solutionDir = "${{ github.workspace }}"
-            
-            # Check if protocol.xml is already in the solution root
-            $expectedRootPath = Join-Path $solutionDir "protocol.xml"
-            
-            if ($protocolPath -ne $expectedRootPath) {
-              # Only copy if it's not already in the root
-              Write-Host "Copying protocol.xml to solution root for MCC compatibility"
-              Copy-Item -Path $protocolPath -Destination $expectedRootPath -Force
-              $copiedFile = $true
-            } else {
-              Write-Host "protocol.xml is already in the solution root"
-              $copiedFile = $false
-            }
-            
-            # Run MCC
-            dataminer-validator major-change-checker `
-              --mcc-solution-path "$solutionDir" `
-              --mcc-output-directory "${{ github.workspace }}" `
-              --output-file-name "mccResults" `
-              --catalog-id "${{ vars.catalogIdentifier }}" `
-              --catalog-api-key "${{ env.DATAMINER_TOKEN }}" `
-              
-              
-            # Clean up the temporary copy only if we created one
-            if ($copiedFile -and (Test-Path $expectedRootPath)) {
-              Remove-Item -Path $expectedRootPath -Force -ErrorAction SilentlyContinue
-              Write-Host "Cleaned up temporary protocol.xml copy"
-            }
-            
-          } else {
-            Write-Host " ERROR: protocol.xml not found anywhere in the repository"
-            Write-Host "Searched in: ${{ github.workspace }}"
-            exit 1
-          }
-        continue-on-error: true
-        shell: pwsh
+          
+      
 
       - name: Archive Major Change Check Results
         uses: actions/upload-artifact@v4

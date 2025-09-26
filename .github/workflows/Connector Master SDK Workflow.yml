@@ -273,17 +273,36 @@ jobs:
             exit(1)
         shell: python
         continue-on-error: true
+        
       - name: Run Major Change Checker
         id: major-change-check
         run: |
-          dataminer-validator major-change-checker `
-            --mcc-solution-path "${{ github.workspace }}" `
-            --mcc-output-directory "${{ github.workspace }}" `
-            --output-file-name "mccResults" `
-            --catalog-id "${{ vars.CATALOG_IDENTIFIER }}" `
-            --catalog-api-key "${{ env.DATAMINER_TOKEN }}" `
+          # Find the actual protocol.xml location
+          $protocolPath = Get-ChildItem -Path "${{ github.workspace }}" -Recurse -Filter "protocol.xml" | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $protocolPath) {
+            $protocolPath = Get-ChildItem -Path "${{ github.workspace }}" -Recurse -Filter "Protocol.xml" | Select-Object -First 1 -ExpandProperty FullName
+          }
+          
+          if ($protocolPath) {
+            Write-Host "Found protocol file at: $protocolPath"
+            $protocolDir = Split-Path -Path $protocolPath -Parent
+            Write-Host "Protocol directory: $protocolDir"
             
+            # Run MCC from the protocol directory
+            dataminer-validator major-change-checker `
+              --mcc-solution-path "$protocolDir" `
+              --mcc-output-directory "${{ github.workspace }}" `
+              --output-file-name "mccResults" `
+              --catalog-id "${{ vars.catalogIdentifier }}" `
+              --catalog-api-key "${{ env.DATAMINER_TOKEN }}" `
+              --debug "${{ inputs.debug }}"
+          } else {
+            Write-Host " ERROR: protocol.xml not found anywhere in the repository"
+            Write-Host "Searched in: ${{ github.workspace }}"
+            exit 1
+          }
         continue-on-error: true
+        shell: pwsh
 
       - name: Archive Major Change Check Results
         uses: actions/upload-artifact@v4

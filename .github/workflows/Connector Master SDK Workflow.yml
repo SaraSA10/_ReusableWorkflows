@@ -283,7 +283,7 @@ jobs:
               --mcc-output-directory "${{ github.workspace }}" `
               --output-file-name "mccResults" `
               --catalog-id "${{ vars.catalogIdentifier }}" `
-              --catalog-api-key "$apiKey"
+              --catalog-api-key "${{ secrets.CATALOG_API_KEY }}"
               
             # Clean up the temporary copy only if we created one
             if ($copiedFile -and (Test-Path $expectedRootPath)) {
